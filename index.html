@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iPhone バーコード読み取りテスト</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f0f0; }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; }
+        video { width: 100%; height: auto; display: block; }
+        #result-box { margin-top: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #007aff; color: white; border: none; border-radius: 8px; margin: 10px; cursor: pointer; }
+        .btn:active { opacity: 0.8; }
+        #status { color: #666; font-size: 14px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>バーコードスキャン試験</h1>
+    <div id="status">カメラを起動してください</div>
+    <div id="video-container">
+        <video id="video" autoplay muted playsinline></video>
+    </div>
+    <div>
+        <button class="btn" id="start-btn">カメラ起動</button>
+        <button class="btn" id="reset-btn" style="background-color: #ff3b30;">リセット</button>
+    </div>
+    <div id="result-box">
+        <h3>読み取り結果 (ISBN):</h3>
+        <p id="result" style="font-size: 24px; font-weight: bold; color: #007aff;">----</p>
+    </div>
+    <script>
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+        const startButton = document.getElementById('start-btn');
+        const resetButton = document.getElementById('reset-btn');
+        const resultElement = document.getElementById('result');
+        const statusElement = document.getElementById('status');
+
+        startButton.addEventListener('click', async () => {
+            statusElement.innerText = "カメラをリクエスト中...";
+            resultElement.innerText = "----";
+            const constraints = {
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            };
+            try {
+                await codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
+                    if (result) {
+                        resultElement.innerText = result.text;
+                        if (navigator.vibrate) navigator.vibrate(200);
+                    }
+                });
+                statusElement.innerText = "スキャン中... バーコードをかざしてください";
+            } catch (error) {
+                statusElement.innerText = "エラー: カメラの起動に失敗しました（HTTPS環境ですか？）";
+                alert("カメラにアクセスできません。URLが「https://」で始まっているか確認してください。");
+            }
+        });
+
+        resetButton.addEventListener('click', () => {
+            codeReader.reset();
+            resultElement.innerText = "----";
+            statusElement.innerText = "カメラを停止しました";
+        });
+    </script>
+</body>
+</html>
