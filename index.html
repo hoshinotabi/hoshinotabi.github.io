@@ -1,67 +1,729 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iPhone バーコード読み取りテスト</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f0f0; }
-        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; }
-        video { width: 100%; height: auto; display: block; }
-        #result-box { margin-top: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #007aff; color: white; border: none; border-radius: 8px; margin: 10px; cursor: pointer; }
-        .btn:active { opacity: 0.8; }
-        #status { color: #666; font-size: 14px; margin-bottom: 10px; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src https: data:; connect-src https://api.openbd.jp; media-src blob: mediastream:; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex,nofollow">
+<title>藏スキャン</title>
+<style>
+:root{
+  --bg:#ffffff;
+  --ink:#2a2c26;
+  --muted:#6a6e64;
+  --line:#b7a78c;
+  --deep:#556148;
+  --leaf:#7e8a69;
+  --mist:#b3bfa0;
+  --wash:#eef1e4;
+  --bough:#9b8e71;
+  --bough-soft:#cbbca1;
+  --danger:#9a5340;
+  --shadow:0 1px 3px rgba(42,44,38,.12), 0 1px 2px rgba(42,44,38,.06);
+  --shadow-btn:0 2px 8px rgba(42,44,38,.16);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:#3a3c36;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input,select,textarea{font:inherit;color:inherit}
+svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic{width:22px;height:22px;display:block;flex:none}
+.ic.sm{width:18px;height:18px}
+.ic.xs{width:12px;height:12px}
+
+.device{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);
+  position:relative;overflow-x:hidden;box-shadow:0 0 40px rgba(0,0,0,.4)}
+.screen{display:none;flex-direction:column;min-height:100vh;padding-bottom:56px}
+.screen.on{display:flex}
+
+/* ---------- ヘッダ ---------- */
+.topbar{position:sticky;top:0;z-index:8;background:var(--bg);padding:12px 16px 10px}
+.topline{display:flex;align-items:center;gap:12px;min-height:44px}
+.title{font-size:17px;font-weight:700;flex:1;text-align:center;letter-spacing:.02em}
+.icon-btn{width:44px;height:44px;border-radius:22px;background:var(--bg);
+  box-shadow:var(--shadow-btn);display:flex;align-items:center;justify-content:center;color:var(--ink);flex:none}
+.icon-btn .notion{width:22px;height:22px}
+
+/* ---------- 検索ページ ---------- */
+.sec-h{font-size:13px;font-weight:700;color:var(--ink);margin:18px 20px 8px;letter-spacing:.04em}
+.pill{display:flex;align-items:center;gap:10px;border-radius:999px;padding:0 16px;height:48px;
+  margin:0 16px;box-shadow:var(--shadow-btn);background:var(--bg)}
+.pill input{flex:1;border:0;background:none;outline:none;font-size:16px;min-width:0;color:var(--ink)}
+.pill input::placeholder{color:#9a9d94}
+.pill .ico{color:var(--ink);display:flex}
+.clear{width:22px;height:22px;border-radius:11px;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.clear svg{width:12px;height:12px;stroke:#fff;stroke-width:2.4}
+.clear[hidden]{display:none}
+.pill.scanbtn{width:calc(100% - 32px);background:var(--wash);color:var(--ink);font-size:16px;font-weight:600;justify-content:center}
+.pill.newbtn{width:calc(100% - 32px);background:var(--deep);color:#fff;font-size:16px;font-weight:700;justify-content:center}
+.pill.newbtn:active{background:#46513b}
+.ic.bc{width:28px;height:18px}
+.pill.scanbtn:active{background:#e2e7d3}
+.hint{font-size:11px;color:var(--muted);margin:8px 22px 0}
+
+.divider{height:1px;background:var(--line);margin:24px 0 0}
+.recent-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px}
+.recent-head .h{font-size:13px;font-weight:700;letter-spacing:.04em}
+.more{font-size:13px;color:var(--deep);font-weight:600;display:inline-flex;align-items:center;gap:2px}
+.more svg{width:14px;height:14px;transform:rotate(180deg)}
+
+/* 横スクロール履歴 */
+.strip{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:14px}
+.strip::-webkit-scrollbar{display:none}
+.track{position:relative;display:flex;padding:24px 16px 0;width:max-content}
+.dgroup{position:relative;display:flex;gap:12px;margin-right:24px}
+.dgroup:last-child{margin-right:0}
+.ditem{display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.ditem .cv{height:112px;border-radius:3px;box-shadow:0 1px 3px rgba(42,44,38,.2);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;text-align:center;padding:4px}
+.ditem .tt{font-size:11px;line-height:1.35;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.strip-wrap{position:relative}
+.dlabel,.pinned{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);white-space:nowrap;line-height:16px}
+.dlabel{position:absolute;top:-20px;z-index:2}
+.dlabel.head{left:0;padding:0 6px 0 0}
+.dlabel.tail{right:0;padding:0 0 0 6px}
+.dlabel.off{visibility:hidden}
+.pinned{position:absolute;left:16px;top:4px;padding:0 6px 0 0;z-index:1;pointer-events:none}
+.ditem .cvt{font-size:9px;line-height:1.3;color:#fff;opacity:.9;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;transition:opacity .3s}
+
+/* スケルトン（読込中）：パレット色の仮書影＋光の帯だけ。画像通信なし */
+.skel-host .cv,.skel-host .cover{position:relative;overflow:hidden}
+.skel-host.loading .cover{color:transparent}
+.skel-host.loading .cvt{opacity:0}
+.skel-host.loading .cv::after,.skel-host.loading .cover::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.07) 30%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.07) 70%,rgba(255,255,255,0) 100%);
+  transform:translateX(-100%);animation:wave 2s cubic-bezier(.4,0,.6,1) .2s infinite}
+/* マット調：幅広・低コントラストの光を左→右へ。通過後に少し間を置く */
+@keyframes wave{0%{transform:translateX(-100%)}70%,100%{transform:translateX(100%)}}
+.skel-host.loading .tt,.skel-host.loading .bk,.skel-host.loading .sub,.skel-host.loading .pub{color:transparent !important;border-radius:4px;
+  background:#efeee9 linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%) no-repeat;
+  background-size:45% 100%;background-position:-100% 0;animation:wavebg 2s cubic-bezier(.4,0,.6,1) .2s infinite}
+@keyframes wavebg{0%{background-position:-100% 0}70%,100%{background-position:200% 0}}
+.skel-host.loading .bk{width:85%}
+.skel-host.loading .sub{width:40%;margin-top:6px}
+.skel-host.loading .pub{width:55%;margin-top:4px}
+.skel-host.loading .badges,.skel-host.loading .addbtn{visibility:hidden}
+/* v0.7：「視差効果を減らす」がオンでも読込中の光は止めない（低コントラスト・低速のため負担小） */
+
+/* ---------- 候補リスト ---------- */
+.searchrow{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:999px;
+  padding:0 14px;height:46px;margin-top:10px;box-shadow:var(--shadow-btn)}
+.searchrow input{flex:1;border:0;background:none;outline:none;font-size:16px;min-width:0}
+.searchrow .ico{color:var(--ink);display:flex}
+.hitbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px;font-size:12px;color:var(--muted)}
+.sort{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:12px;padding:4px 0}
+.sort svg{width:14px;height:14px}
+
+.list{background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.row{display:flex;gap:14px;padding:12px 16px;border-top:1px solid var(--line);align-items:stretch;cursor:pointer}
+.row:first-child{border-top:0}
+.cv-col{width:66px;flex:none;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-start}
+.cover{width:100%;border-radius:3px;box-shadow:0 1px 3px rgba(42,44,38,.2);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;text-align:center;padding:4px}
+.row .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.row .bk{font-size:15px;font-weight:700;line-height:1.35}
+.row .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.row .pub{font-size:12px;color:var(--muted)}
+.badges{display:flex;gap:4px;flex-wrap:wrap}
+.badge{font-size:10px;padding:2px 7px;border-radius:999px;background:var(--wash);color:var(--deep);font-weight:700}
+.badge.warn{background:#f3ead8;color:#7a6548}
+.badge.done{background:#ecebe3;color:var(--muted)}
+.row-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto;padding-top:8px}
+.addbtn{flex:none;margin-left:auto;background:transparent;color:var(--deep);
+  font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;border:1.5px solid var(--leaf);white-space:nowrap}
+.addbtn.filled{background:var(--deep);color:#fff;border-color:var(--deep);display:inline-flex;align-items:center;gap:4px;padding:6px 12px 6px 14px}
+.addbtn.filled svg{width:12px;height:12px;stroke:#fff}
+.manual-link{display:block;text-align:center;font-size:13px;color:var(--deep);padding:18px 16px 8px}
+.manual-link b{font-weight:700}
+
+/* ---------- 編集 ---------- */
+.coverzone{background:var(--wash);padding:18px 0 16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.coverzone .cover{width:96px}
+.coverzone .hint{margin:0;color:var(--deep)}
+.grouphead{font-size:12px;font-weight:700;color:var(--muted);margin:0 16px 2px;letter-spacing:.06em;display:flex;justify-content:space-between}
+.grouphead .cnt{font-weight:400}
+.group{background:var(--bg);margin:0 0 18px}
+.field{display:flex;align-items:center;gap:10px;padding:11px 16px 11px 0;margin-left:16px;border-top:1px solid var(--line)}
+.field:first-child{border-top:0}
+.field label{width:88px;flex:none;font-size:12px;color:var(--muted)}
+.field input,.field select{flex:1;border:0;background:none;outline:none;font-size:14px;min-width:0}
+.field.empty input,.field.empty textarea{background:#fff6dc;border-radius:6px;padding:4px 6px}
+.field .tag{font-size:10px;color:#7a6548;font-weight:700;white-space:nowrap}
+.field textarea{flex:1;border:0;background:none;outline:none;font-size:13px;resize:vertical;min-height:54px}
+.okall{font-size:12px;color:var(--muted);padding:10px 16px}
+details.fold{margin:-18px 0 18px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.chip{font-size:12px;padding:4px 11px;border-radius:999px;border:1px solid var(--line) !important;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--deep);color:#fff;border-color:var(--deep) !important}
+.field .sw{margin-left:auto}
+#extras-body[hidden]{display:none}
+#extras-body{animation:xin .28s cubic-bezier(.16,1.22,.36,1)}
+@keyframes xin{from{opacity:0;transform:translateY(-6px)}}
+.xscan{flex:none;font-size:12px;font-weight:700;padding:5px 13px;border-radius:999px;border:1px solid var(--deep) !important;color:var(--deep);background:#fff}
+.xscan:active{background:var(--wash)}
+.xscan[disabled]{opacity:.5}
+.xrow input{font-size:13px}
+.xrow .xauto{flex:none;font-size:10px;color:var(--leaf);border:1px solid var(--mist);border-radius:999px;padding:1px 7px}
+.xdel{flex:none;width:24px;height:24px;border-radius:12px;color:var(--muted);font-size:16px;line-height:24px;text-align:center}
+.xdel:active{background:var(--wash)}
+.addline{position:relative;height:30px;margin-left:16px}
+.addline::before{content:"";position:absolute;left:0;right:16px;top:50%;border-top:1px solid var(--line)}
+.addrow{position:absolute;left:calc(50% - 8px);top:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:13px;
+  background:#fff;border:1px solid var(--line) !important;color:var(--deep);display:flex;align-items:center;justify-content:center}
+.addrow:active{background:var(--wash)}
+.addrow .ic{width:16px;height:16px}
+details.fold summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px 11px 0;margin-left:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);font-weight:600}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary svg{width:16px;height:16px;transition:transform .2s}
+details.fold[open] summary svg{transform:rotate(180deg)}
+details.fold .inner .field:first-child{border-top:1px solid var(--line)}
+.actions{position:sticky;bottom:56px;display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:6}
+.actions button{padding:13px 0;border-radius:999px;font-size:14px;font-weight:700;text-align:center}
+.primary{flex:1;background:var(--deep);color:#fff}
+.ghostbtn{flex:0 0 88px;background:var(--bg);color:var(--danger);border:1px solid var(--line) !important}
+.copybtn{display:block;margin:0 16px 20px;width:calc(100% - 32px);padding:12px;border-radius:999px;
+  background:var(--bg);box-shadow:var(--shadow);font-size:13px;font-weight:700;color:var(--deep)}
+
+/* ---------- スキャン ---------- */
+.scan{background:#1c1c18;color:#fff;padding-bottom:0}
+.scan .topbar{background:#1c1c18}
+.scan .title{color:#fff}
+.scan .icon-btn{background:#2c2c28;color:#fff;box-shadow:none}
+.camera{height:210px;background:repeating-linear-gradient(135deg,#2a2a26 0 12px,#232320 12px 24px);
+  position:relative;display:flex;align-items:center;justify-content:center}
+.frame{width:78%;height:96px;border:2px solid var(--bough-soft);border-radius:6px;position:relative}
+.frame::after{content:"";position:absolute;left:8%;right:8%;top:50%;height:1px;background:var(--bough-soft);opacity:.85}
+.camhint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:11px;color:#c7c4b8}
+.scanlist{flex:1;background:var(--bg);padding:8px 0 88px;color:var(--ink)}
+.switchrow{position:sticky;bottom:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#1c1c18;color:#fff;font-size:13px;z-index:6}
+
+/* トグル */
+.sw{width:46px;height:28px;border-radius:14px;background:#d6d6d0;position:relative;transition:background .18s;flex:none}
+.scan .sw{background:#48484a}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s cubic-bezier(.3,1.4,.5,1)}
+.sw[aria-checked="true"]{background:var(--leaf)}
+.sw[aria-checked="true"]::after{transform:translateX(18px)}
+
+/* ---------- バナー ---------- */
+.banner{position:fixed;left:0;right:0;max-width:406px;margin:0 auto;top:10px;z-index:90;
+  background:var(--deep);color:#fff;padding:16px 18px;border-radius:16px;min-height:64px;
+  display:flex;align-items:center;gap:12px;font-size:14px;font-weight:700;box-shadow:var(--shadow-btn);
+  opacity:0;transform:translateY(-16px);pointer-events:none;transition:opacity .2s,transform .32s cubic-bezier(.2,1.3,.4,1)}
+.banner.on{opacity:1;transform:translateY(0)}
+.banner-mark{width:32px;height:32px;flex:none}
+.banner-mark svg{width:32px;height:32px;display:block;stroke:none}
+
+/* ---------- ハーフモーダル（浮いたシート） ---------- */
+.modal{position:fixed;top:0;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;z-index:60;
+  display:flex;align-items:flex-end;background:rgba(0,0,0,0);visibility:hidden;
+  transition:background .2s ease, visibility 0s linear .3s}
+.modal.on{background:rgba(0,0,0,.15);visibility:visible;transition:background .2s ease}
+.sheet{width:calc(100% - 16px);margin:0 8px calc(8px + env(safe-area-inset-bottom));
+  background:var(--bg);border-radius:30px;padding:6px 0 10px;
+  box-shadow:0 12px 40px rgba(42,44,38,.22);
+  transform:translateY(calc(100% + 32px));
+  transition:transform .24s cubic-bezier(.5,0,.9,.6)}
+.modal.on .sheet{transform:translateY(0);transition:transform .46s cubic-bezier(.16,1.22,.36,1)}
+.sheet.dragging{transition:none !important}
+.grab{padding:8px 0 2px;touch-action:none;cursor:grab}
+.grab .bar{width:38px;height:5px;border-radius:3px;background:#d4d2c8;margin:0 auto}
+.sheet h4{margin:10px 16px 6px;font-size:16px;color:var(--ink);font-weight:700;text-align:center}
+.sheet .opt{display:flex;align-items:center;justify-content:space-between;width:100%;
+  text-align:left;padding:14px 22px;font-size:16px}
+.sheet .opt:active{background:#f4f4ef}
+.sheet .opt .ck{width:18px;height:18px;color:var(--deep);opacity:0}
+.sheet .opt[aria-selected="true"]{color:var(--deep);font-weight:700}
+.sheet .opt[aria-selected="true"] .ck{opacity:1}
+.sheet .cancel{color:var(--muted);font-size:15px;text-align:center;width:100%;padding:14px}
+.sheet.tall{max-height:78vh;display:flex;flex-direction:column}
+.tiles-scroll{overflow-y:auto;padding:4px 16px 8px;-webkit-overflow-scrolling:touch}
+.tgroup-h{font-size:11px;font-weight:700;color:var(--muted);margin:12px 2px 8px}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 12px;align-items:start}
+.tgrid .cv{width:100%;border-radius:3px;box-shadow:0 1px 3px rgba(42,44,38,.2);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;text-align:center;padding:4px}
+.tgrid .tt{font-size:11px;line-height:1.35;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- 設定ポップオーバー ---------- */
+.pop-bg{position:fixed;inset:0;z-index:70;display:none}
+.pop-bg.on{display:block}
+.popover{position:absolute;top:66px;left:16px;width:300px;background:var(--bg);border-radius:20px;
+  box-shadow:0 10px 36px rgba(42,44,38,.24);padding:10px 0 6px;transform-origin:22px -6px;
+  transform:scale(.88);opacity:0;transition:transform .26s cubic-bezier(.2,1.3,.4,1),opacity .16s}
+.pop-bg.on .popover{transform:scale(1);opacity:1}
+.pop-wrap{position:relative;max-width:430px;margin:0 auto;height:100%}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;font-size:14px}
+.acc{margin:6px 16px 6px;opacity:.5;color:var(--muted)}
+.acc summary{cursor:pointer;font-size:12px;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary svg{width:14px;height:14px;transition:transform .2s}
+.acc[open] summary svg{transform:rotate(180deg)}
+.acc p{margin:2px 0 6px;line-height:1.55;font-size:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+
+.devbar{position:fixed;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;z-index:80;display:flex;gap:4px;justify-content:center;
+  padding:6px;background:rgba(42,44,38,.92)}
+.devbar button{font-size:11px;color:#d1d1c6;padding:6px 9px;border-radius:7px;background:#2c2c28}
+.devbar button.on{background:var(--leaf);color:#fff}
+
+/* ---------- v0.7 追加 ---------- */
+.lastscan,.xlast{font-size:11px;color:var(--muted);padding:8px 16px 14px}
+.xlast{padding:6px 16px 4px;margin-left:16px;padding-left:0;border-top:1px solid var(--line)}
+.lastscan b,.xlast b{color:var(--deep);font-weight:700}
+.skel-host.pin .cv::after,.skel-host.pin .cover::after{animation-play-state:running}
+@media (min-width:768px){
+  .device{max-width:980px}
+  .pop-wrap{max-width:980px}
+  .devbar{max-width:980px}
+  .banner{max-width:420px}
+  /* ① 検索：左＝探す、右＝最近登録した本 */
+  .s-cols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:0 8px;align-items:start;padding:0 8px}
+  .s-right{border-left:1px solid var(--line);min-height:calc(100vh - 140px)}
+  .s-right > .divider:first-child{display:none}
+  .s-right > .divider{display:none}
+  .s-right .recent-head{padding-top:18px}
+  /* ② 候補：2列のカード */
+  #hits{display:grid;grid-template-columns:1fr 1fr}
+  #hits .row:nth-child(2){border-top:0}
+  #hits .row:nth-child(odd){border-right:1px solid var(--line)}
+  /* ③ 編集：左＝書影（追従）、右＝項目 */
+  .cf-body{display:grid;grid-template-columns:280px minmax(0,1fr);align-items:start}
+  .cf-body .coverzone{position:sticky;top:68px;min-height:calc(100vh - 200px);justify-content:flex-start;padding-top:28px}
+  .cf-body .coverzone .cover{width:150px}
+  .cf-body > div:last-child{padding-top:20px !important}
+  /* ④ スキャン：カメラを広く */
+  .camera{height:320px}
+  .frame{width:420px;height:130px}
+  /* シート：中央の小窓 */
+  .modal{max-width:none;align-items:center;justify-content:center}
+  .sheet{width:400px;max-width:calc(100% - 48px);margin:0;border-radius:24px;padding:10px 0 10px;
+    opacity:0;transform:translateY(16px) scale(.96);transition:transform .2s cubic-bezier(.5,0,.9,.6),opacity .16s}
+  .modal.on .sheet{opacity:1;transform:none;transition:transform .36s cubic-bezier(.16,1.22,.36,1),opacity .2s}
+  .sheet .grab{display:none}
+  .sheet.tall{width:680px;max-height:80vh}
+  .tgrid{grid-template-columns:repeat(5,1fr)}
+}
+/* ---------- 藏スキャン v0.1 追加 ---------- */
+.screen.scan{padding-bottom:0}
+.camera{overflow:hidden}
+.camera video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.camera.live{background:#000}
+.camera.live video{display:block}
+.camera.live .frame{box-shadow:0 0 0 999px rgba(0,0,0,.38)}
+.frame{z-index:1;transition:border-color .2s}
+.camera.hit .frame{border-color:#fff}
+.camhint{z-index:2}
+.switchrow{position:static;padding:12px 16px}
+.switchrow .lbl b{display:block;font-size:13px}
+.switchrow .lbl small{display:block;font-size:11px;color:#c7c4b8;font-weight:400}
+.scanlist{padding:0 0 120px}
+.row{position:relative}
+.row .meta{padding-right:22px}
+.cover{aspect-ratio:2/3;overflow:hidden;padding:4px}
+.cover.img{padding:0;background:#efeee9}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.stbtn{font-size:12px;font-weight:700;color:var(--deep);border:1.5px solid var(--leaf) !important;border-radius:999px;
+  padding:5px 12px;white-space:nowrap;display:inline-flex;gap:4px;align-items:center;flex:none;margin-left:auto}
+.stbtn svg{width:12px;height:12px}
+.row .xdel{position:absolute;top:8px;right:6px}
+.row.sent{opacity:.55}
+.row.flash{animation:flash 1s ease-out}
+@keyframes flash{0%{background:var(--wash)}100%{background:#fff}}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:44px 24px;line-height:1.7}
+.empty b{color:var(--deep)}
+.actions{bottom:var(--devh,0px)}
+body.dev{--devh:40px}
+.actions .ghostbtn{color:var(--muted)}
+.actions .primary[disabled]{background:var(--mist)}
+.sheet .bookhead{display:flex;gap:12px;padding:4px 20px 12px;align-items:center}
+.sheet .bookhead .cover{width:52px;flex:none}
+.sheet .bookhead .bk{font-size:15px;font-weight:700;line-height:1.35}
+.sheet .bookhead .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.sheet .sbtns{display:flex;gap:8px;padding:10px 16px 4px}
+.sheet .sbtns button{flex:1;padding:13px 0;border-radius:999px;font-weight:700;font-size:14px;text-align:center}
+.sheet .sbtns .sub2{background:var(--bg);color:var(--muted);border:1px solid var(--line) !important}
+.sheet .field label{width:72px}
+.sheet .group{margin:0 0 6px}
+.sheet .delrow{color:var(--danger);font-size:14px;text-align:center;width:100%;padding:12px}
+.secnote{font-size:11px;color:var(--muted);padding:2px 16px 10px;line-height:1.6}
+.setrow input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;outline:none}
+.setrow select{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
+.setbtn{font-size:12px;font-weight:700;color:#fff;background:var(--deep);border-radius:999px;padding:7px 14px;flex:none}
+.setrow.err input{border-color:var(--danger);background:#fbefe9}
+.popover{width:330px}
+.danger-link{display:block;width:calc(100% - 32px);margin:4px 16px 8px;padding:10px;border-radius:999px;font-size:12px;color:var(--danger);border:1px solid var(--line) !important}
+@media (min-width:768px){
+  .s2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+  .camwrap{position:sticky;top:68px}
+  .camera{height:360px}
+  .frame{width:80%;height:130px}
+  .scanlist{min-height:calc(100vh - 140px)}
+}
+</style>
 </head>
-<body>
-    <h1>バーコードスキャン試験</h1>
-    <div id="status">カメラを起動してください</div>
-    <div id="video-container">
-        <video id="video" autoplay muted playsinline></video>
+<body class="dev">
+<div class="device">
+<section class="screen scan on" id="scr">
+  <div class="topbar"><div class="topline">
+    <button class="icon-btn" id="gear" aria-label="設定"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <div class="title">バーコード</div>
+    <button class="icon-btn" id="camtog" aria-label="カメラ開始"><svg class="ic" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+  </div></div>
+  <div class="s2">
+    <div class="camwrap">
+      <div class="camera" id="camera">
+        <video id="video" muted playsinline autoplay></video>
+        <div class="frame"></div>
+        <div class="camhint" id="camhint">右上のカメラで読み取りを始めます</div>
+      </div>
+      <div class="switchrow">
+        <span class="lbl"><b>連続スキャン</b><small id="contnote">読めたらリストに積んで次へ</small></span>
+        <button class="sw" id="contsw" role="switch" aria-checked="true" aria-label="連続スキャン"></button>
+      </div>
     </div>
-    <div>
-        <button class="btn" id="start-btn">カメラ起動</button>
-        <button class="btn" id="reset-btn" style="background-color: #ff3b30;">リセット</button>
+    <div class="scanlist">
+      <div class="hitbar"><span id="cnt">0冊</span>
+        <button class="sort" id="bulk">まとめて読書状況<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div class="list" id="qlist"></div>
+      <div class="empty" id="empty">まだ本はありません。<br>裏表紙の上段（<b>978</b>・<b>979</b> で始まる方）を枠に合わせてください。</div>
     </div>
-    <div id="result-box">
-        <h3>読み取り結果 (ISBN):</h3>
-        <p id="result" style="font-size: 24px; font-weight: bold; color: #007aff;">----</p>
-    </div>
-    <script>
-        const codeReader = new ZXing.BrowserMultiFormatReader();
-        const startButton = document.getElementById('start-btn');
-        const resetButton = document.getElementById('reset-btn');
-        const resultElement = document.getElementById('result');
-        const statusElement = document.getElementById('status');
+  </div>
+  <div class="actions">
+    <button class="ghostbtn" id="tidy">整理</button>
+    <button class="primary" id="send" disabled>藏へ送る</button>
+  </div>
+</section>
+</div>
 
-        startButton.addEventListener('click', async () => {
-            statusElement.innerText = "カメラをリクエスト中...";
-            resultElement.innerText = "----";
-            const constraints = {
-                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false
-            };
-            try {
-                await codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
-                    if (result) {
-                        resultElement.innerText = result.text;
-                        if (navigator.vibrate) navigator.vibrate(200);
-                    }
-                });
-                statusElement.innerText = "スキャン中... バーコードをかざしてください";
-            } catch (error) {
-                statusElement.innerText = "エラー: カメラの起動に失敗しました（HTTPS環境ですか？）";
-                alert("カメラにアクセスできません。URLが「https://」で始まっているか確認してください。");
-            }
-        });
+<!-- 読書状況（ハーフモーダル） -->
+<div class="modal" id="stmodal"><div class="sheet">
+  <div class="grab"><div class="bar"></div></div>
+  <h4 id="sttitle">読書状況</h4>
+  <div id="stopts"></div>
+  <button class="cancel" data-close>キャンセル</button>
+</div></div>
 
-        resetButton.addEventListener('click', () => {
-            codeReader.reset();
-            resultElement.innerText = "----";
-            statusElement.innerText = "カメラを停止しました";
-        });
-    </script>
-</body>
-</html>
+<!-- 1冊の設定 -->
+<div class="modal" id="edmodal"><div class="sheet tall">
+  <div class="grab"><div class="bar"></div></div>
+  <div class="bookhead" id="edhead"></div>
+  <div class="tiles-scroll" style="padding:0">
+    <div class="group">
+      <div class="field"><label>読書状況</label><div class="chips" id="edst"></div></div>
+      <div class="field"><label>所蔵形態</label><div class="chips" id="edown"></div></div>
+      <div class="field"><label>タグ</label><input id="edtag" maxlength="40" placeholder="読点で区切る"></div>
+      <div class="field"><label>メモ</label><input id="edmemo" maxlength="60" placeholder="60字まで"></div>
+    </div>
+    <div class="secnote">その他の項目（媒体・内容種別・NAS など）は、藏に送ったあとの確認画面で整えます。</div>
+  </div>
+  <button class="delrow" id="eddel">リストから外す</button>
+  <button class="cancel" data-close>閉じる</button>
+</div></div>
+
+<!-- 連続オフ時の確認 -->
+<div class="modal" id="cfmodal"><div class="sheet">
+  <div class="grab"><div class="bar"></div></div>
+  <h4>読み取りました</h4>
+  <div class="bookhead skel-host" id="cfhead"></div>
+  <div class="group"><div class="field"><label>読書状況</label><div class="chips" id="cfst"></div></div></div>
+  <div class="sbtns"><button class="sub2" id="cfretry">読み直す</button><button class="primary" id="cfadd">リストに加える</button></div>
+</div></div>
+
+<!-- 設定 -->
+<div class="pop-bg" id="popbg"><div class="pop-wrap"><div class="popover">
+  <div class="setrow" style="font-weight:700">送り先（藏のアプリ）</div>
+  <div class="setrow" id="gasrow"><input id="gas" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"><button class="setbtn" id="gassave">保存</button></div>
+  <div class="secnote" id="gasnote">この端末の中にだけ保存します。公開されるページには書き込まれません。</div>
+  <div class="setrow">既定の読書状況<select id="defst"></select></div>
+  <details class="acc"><summary>安全について<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+    <p>この画面は鍵やパスワードを持ちません。書誌の下見は公開の openBD だけを使い、登録と重複の確認は藏のアプリ側（Google ログインが必要）で行います。</p></details>
+  <button class="danger-link" id="wipe">この端末のリストと設定を消す</button>
+</div></div></div>
+
+<div class="banner" id="banner"><span class="banner-mark"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#7e8a69"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="bantext"></span></div>
+
+<div class="devbar" id="devbar">
+  <button id="d-demo">デモ読取</button>
+  <button id="d-miss">未収録の本</button>
+  <button id="d-dup">同じ本</button>
+  <button id="d-hide">バーを閉じる</button>
+</div>
+<script>
+'use strict';
+/* 藏スキャン v0.1.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
+const VERSION = '0.1.0';
+const ZX_SRC = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js';
+const ZX_SRI = ''; // 公開前に README の手順で sha384 を入れる
+const ST = ['読みたい', 'いま読んでる', '読み終わった', '積読'];
+const OWN = ['紙のみ', '未所有'];
+const LSQ = 'kura.queue', LSG = 'kura.gas', LSD = 'kura.defst';
+const GAS_RE = /^https:\/\/script\.google\.com\/(?:a\/[A-Za-z0-9.\-]+\/)?macros\/s\/[A-Za-z0-9_\-]+\/exec$/;
+const COLORS = ['#556148', '#7e8a69', '#9b8e71', '#6b5d4a', '#4f5a52', '#8a7356'];
+const DEMO = ['9784101010014', '9784003101018', '9784480012340', '9784334000004', '9784873117782', '9784062938709'];
+const URL_MAX = 6000;
+
+const $ = s => document.querySelector(s);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function isbnOk(t) {
+  if (!/^97[89]\d{10}$/.test(t)) return false;
+  let s = 0; for (let i = 0; i < 12; i++) s += (+t[i]) * (i % 2 ? 3 : 1);
+  return (10 - s % 10) % 10 === +t[12];
+}
+function loadQ() { try { const q = JSON.parse(LS.get(LSQ, '[]')); return Array.isArray(q) ? q.filter(b => b && isbnOk(b.isbn)) : []; } catch (e) { return []; } }
+let Q = loadQ();
+Q.forEach(b => { b.loading = false; });
+function save() { LS.set(LSQ, JSON.stringify(Q.map(({ loading, ...b }) => b))); }
+function defSt() { const n = +LS.get(LSD, '3'); return n >= 0 && n < ST.length ? n : 3; }
+function find(isbn) { return Q.find(b => b.isbn === isbn); }
+
+/* ---------- 描画 ---------- */
+function coverHTML(b) {
+  if (b.cover) return `<div class="cover img"><img src="${esc(b.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`;
+  const c = COLORS[(+b.isbn.slice(-3)) % COLORS.length];
+  return `<div class="cover" style="background:${c}">${esc((b.title || '').slice(0, 14))}</div>`;
+}
+function badges(b) {
+  let h = '';
+  if (b.sent) h += '<span class="badge done">送信済み</span>';
+  else if (b.miss) h += '<span class="badge warn">下見なし・藏で補完</span>';
+  else if (b.title) h += '<span class="badge">openBD</span>';
+  if (OWN[b.own] === '未所有') h += '<span class="badge done">未所有</span>';
+  return h;
+}
+function pubLine(b) { return [b.publisher, b.pubdate].filter(Boolean).join('・'); }
+function rowHTML(b) {
+  return `<div class="row skel-host${b.loading ? ' loading' : ''}${b.sent ? ' sent' : ''}" data-isbn="${b.isbn}">
+  <div class="cv-col">${coverHTML(b)}</div>
+  <div class="meta">
+    <div class="bk">${esc(b.title || 'ISBN ' + b.isbn)}</div>
+    <div class="sub">${esc(b.author || (b.loading ? '' : '著者不明'))}</div>
+    <div class="pub">${esc(pubLine(b) || b.isbn)}</div>
+    <div class="row-foot"><div class="badges">${badges(b)}</div>
+      <button class="stbtn" data-act="st"${b.sent ? ' disabled' : ''}>${ST[b.st]}<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+  </div>
+  <button class="xdel" data-act="del" aria-label="リストから外す">×</button>
+</div>`;
+}
+function render(flash) {
+  $('#qlist').innerHTML = Q.map(rowHTML).join('');
+  $('#qlist').style.display = Q.length ? '' : 'none';
+  $('#empty').style.display = Q.length ? 'none' : '';
+  const un = Q.filter(b => !b.sent).length;
+  $('#cnt').textContent = `${Q.length}冊` + (Q.length !== un ? `（未送信 ${un}）` : '');
+  $('#send').textContent = un ? `藏へ送る（${un}冊）` : '藏へ送る';
+  $('#send').disabled = !un;
+  $('#tidy').disabled = !Q.some(b => b.sent);
+  if (flash) { const r = $(`.row[data-isbn="${flash}"]`); if (r) { r.classList.add('flash'); r.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+}
+
+/* ---------- バナー ---------- */
+let banT = 0;
+function banner(t) { $('#bantext').textContent = t; $('#banner').classList.add('on'); clearTimeout(banT); banT = setTimeout(() => $('#banner').classList.remove('on'), 1800); }
+
+/* ---------- 書誌の下見（openBD のみ、鍵不要） ---------- */
+function fmtDate(d) { d = String(d || '').replace(/\D/g, ''); if (d.length >= 6) return d.slice(0, 4) + '-' + d.slice(4, 6); return d.slice(0, 4); }
+async function lookup(b) {
+  try {
+    const r = await fetch('https://api.openbd.jp/v1/get?isbn=' + b.isbn, { referrerPolicy: 'no-referrer', credentials: 'omit' });
+    const j = await r.json();
+    const s = j && j[0] && j[0].summary;
+    if (s && s.title) {
+      b.title = String(s.title).slice(0, 120);
+      b.author = String(s.author || '').replace(/／著|著$/g, '').slice(0, 80);
+      b.publisher = String(s.publisher || '').slice(0, 60);
+      b.pubdate = fmtDate(s.pubdate);
+      b.cover = /^https:\/\//.test(s.cover || '') ? s.cover : '';
+      b.miss = false;
+    } else b.miss = true;
+  } catch (e) { b.miss = true; }
+  b.loading = false;
+}
+
+/* ---------- 追加 ---------- */
+let pending = null;
+function cont() { return $('#contsw').getAttribute('aria-checked') === 'true'; }
+async function addIsbn(isbn) {
+  const ex = find(isbn);
+  if (ex) { banner('この本はもうリストにあります'); render(isbn); return; }
+  const b = { isbn, st: defSt(), own: 0, tag: '', memo: '', at: Date.now(), loading: true };
+  if (cont()) {
+    Q.unshift(b); render(isbn); save();
+    await lookup(b); save(); render();
+    banner(b.title ? `「${b.title}」を追加しました` : `ISBN ${isbn} を追加しました`);
+  } else {
+    pending = b; paused = true; openConfirm(b);
+    await lookup(b); if (pending === b) openConfirm(b);
+  }
+}
+function bookhead(b) {
+  return `${coverHTML(b)}<div><div class="bk">${esc(b.title || 'ISBN ' + b.isbn)}</div><div class="sub">${esc([b.author, pubLine(b)].filter(Boolean).join('　') || (b.loading ? '読み込み中…' : '下見なし（藏側で補完します）'))}</div></div>`;
+}
+function chips(el, list, cur, fn) {
+  el.innerHTML = list.map((t, i) => `<button class="chip" aria-pressed="${i === cur}" data-i="${i}">${esc(t)}</button>`).join('');
+  el.onclick = e => { const c = e.target.closest('.chip'); if (!c) return; fn(+c.dataset.i); chips(el, list, +c.dataset.i, fn); };
+}
+function openConfirm(b) {
+  const h = $('#cfhead'); h.innerHTML = bookhead(b); h.classList.toggle('loading', !!b.loading);
+  chips($('#cfst'), ST, b.st, i => { b.st = i; });
+  if (!$('#cfmodal').classList.contains('on')) openModal('cfmodal');
+}
+$('#cfadd').onclick = () => { if (!pending) return; const b = pending; pending = null; Q.unshift(b); save(); closeModals(); render(b.isbn); resume(); };
+$('#cfretry').onclick = () => { pending = null; closeModals(); resume(); };
+
+/* ---------- モーダル ---------- */
+function openModal(id) { closeModals(true); $('#' + id).classList.add('on'); }
+function closeModals(keep) {
+  document.querySelectorAll('.modal.on').forEach(m => m.classList.remove('on'));
+  if (!keep && pending) { pending = null; resume(); }
+}
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m || e.target.hasAttribute('data-close')) closeModals(); }));
+
+let stTarget = null; // isbn または 'all'
+function openStatus(target) {
+  stTarget = target;
+  const cur = target === 'all' ? -1 : find(target).st;
+  $('#sttitle').textContent = target === 'all' ? '未送信の本をまとめて' : '読書状況';
+  $('#stopts').innerHTML = ST.map((t, i) => `<button class="opt" aria-selected="${i === cur}" data-i="${i}">${esc(t)}<svg class="ck" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></button>`).join('');
+  openModal('stmodal');
+}
+$('#stopts').onclick = e => {
+  const o = e.target.closest('.opt'); if (!o) return; const i = +o.dataset.i;
+  if (stTarget === 'all') { Q.forEach(b => { if (!b.sent) b.st = i; }); banner(`未送信の本を「${ST[i]}」にしました`); }
+  else { const b = find(stTarget); if (b) b.st = i; }
+  save(); render(); setTimeout(closeModals, 160);
+};
+$('#bulk').onclick = () => { if (Q.some(b => !b.sent)) openStatus('all'); };
+
+let edIsbn = null;
+function openEdit(isbn) {
+  const b = find(isbn); if (!b) return; edIsbn = isbn;
+  $('#edhead').innerHTML = bookhead(b);
+  chips($('#edst'), ST, b.st, i => { b.st = i; save(); render(); });
+  chips($('#edown'), OWN, b.own, i => { b.own = i; save(); render(); });
+  $('#edtag').value = b.tag || ''; $('#edmemo').value = b.memo || '';
+  openModal('edmodal');
+}
+$('#edtag').oninput = e => { const b = find(edIsbn); if (b) { b.tag = e.target.value.slice(0, 40); save(); } };
+$('#edmemo').oninput = e => { const b = find(edIsbn); if (b) { b.memo = e.target.value.slice(0, 60); save(); } };
+$('#eddel').onclick = () => { removeBook(edIsbn); closeModals(); };
+
+function removeBook(isbn) { const b = find(isbn); Q = Q.filter(x => x.isbn !== isbn); save(); render(); if (b) banner(`「${b.title || b.isbn}」を外しました`); }
+$('#qlist').onclick = e => {
+  const row = e.target.closest('.row'); if (!row) return; const isbn = row.dataset.isbn;
+  const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act === 'del') return removeBook(isbn);
+  if (act && act.dataset.act === 'st') return openStatus(isbn);
+  if (!find(isbn).sent) openEdit(isbn);
+};
+
+/* ---------- 連続スキャンの切替 ---------- */
+$('#contsw').onclick = () => {
+  const on = !cont(); $('#contsw').setAttribute('aria-checked', String(on));
+  $('#contnote').textContent = on ? '読めたらリストに積んで次へ' : '1冊ごとに確認してから加える';
+};
+
+/* ---------- カメラ（ZXing は押したときだけ読み込む） ---------- */
+let reader = null, running = false, paused = false, lastCode = '', lastAt = 0;
+function loadZX() {
+  if (window.ZXing) return Promise.resolve();
+  return new Promise((ok, ng) => {
+    const s = document.createElement('script'); s.src = ZX_SRC; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
+    if (ZX_SRI) s.integrity = ZX_SRI;
+    s.onload = ok; s.onerror = () => ng(new Error('ZXing を読み込めませんでした')); document.head.appendChild(s);
+  });
+}
+function hint(t) { $('#camhint').textContent = t; }
+async function startCam() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { hint('このブラウザではカメラを使えません'); return; }
+  hint('カメラを準備しています…');
+  try {
+    await loadZX();
+    const hints = new Map(); hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+    reader = new ZXing.BrowserMultiFormatReader(hints);
+    await reader.decodeFromConstraints({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }, 'video', res => { if (res) onCode(res.getText()); });
+    running = true; paused = false; $('#camera').classList.add('live'); hint('上段のバーコード（978・979）を枠に合わせてください');
+  } catch (e) {
+    stopCam();
+    hint(e && e.name === 'NotAllowedError' ? 'カメラが許可されていません（設定→Safari→カメラ）' : 'カメラを開けませんでした：' + (e && e.message || e));
+  }
+}
+function stopCam() { try { reader && reader.reset(); } catch (e) {} reader = null; running = false; $('#camera').classList.remove('live'); hint('右上のカメラで読み取りを始めます'); }
+function resume() { paused = false; }
+function onCode(text) {
+  if (paused) return;
+  const t = String(text).replace(/\D/g, '');
+  if (!isbnOk(t)) return; // 下段（192…の価格コード）は無視
+  const now = Date.now();
+  if (t === lastCode && now - lastAt < 3000) return;
+  lastCode = t; lastAt = now;
+  paused = true; setTimeout(() => { if (!pending) paused = false; }, 1200);
+  if (navigator.vibrate) navigator.vibrate(60);
+  $('#camera').classList.add('hit'); setTimeout(() => $('#camera').classList.remove('hit'), 400);
+  addIsbn(t);
+}
+$('#camtog').onclick = () => running ? stopCam() : startCam();
+document.addEventListener('visibilitychange', () => { if (document.hidden && running) stopCam(); });
+
+/* ---------- 送信（GAS を最上位で開く＝Google ログインで守られる） ---------- */
+function b64url(str) {
+  const bytes = new TextEncoder().encode(str); let bin = '';
+  bytes.forEach(x => { bin += String.fromCharCode(x); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function buildUrl(gas, items) { return gas + '?batch=' + b64url(JSON.stringify({ v: 1, items: items.map(b => ({ i: b.isbn, s: ST[b.st], o: OWN[b.own], t: b.tag || undefined, m: b.memo || undefined })) })); }
+$('#send').onclick = () => {
+  const gas = LS.get(LSG, '');
+  if (!GAS_RE.test(gas)) { banner('先に送り先を設定してください'); openPop(); return; }
+  const un = Q.filter(b => !b.sent).reverse();
+  let items = [];
+  for (const b of un) { if (buildUrl(gas, items.concat(b)).length > URL_MAX) break; items.push(b); }
+  if (!items.length) return;
+  const url = buildUrl(gas, items);
+  items.forEach(b => { b.sent = Date.now(); }); save(); render();
+  if (items.length < un.length) banner(`長すぎるため ${items.length} 冊ずつ送ります`);
+  stopCam();
+  setTimeout(() => { location.href = url; }, items.length < un.length ? 900 : 0);
+};
+$('#tidy').onclick = () => { const n = Q.filter(b => b.sent).length; if (!n) return; Q = Q.filter(b => !b.sent); save(); render(); banner(`送信済み ${n} 冊を片付けました`); };
+
+/* ---------- 設定 ---------- */
+function openPop() { $('#gas').value = LS.get(LSG, ''); $('#gasrow').classList.remove('err'); $('#popbg').classList.add('on'); }
+$('#gear').onclick = openPop;
+$('#popbg').onclick = e => { if (e.target === $('#popbg') || e.target.classList.contains('pop-wrap')) $('#popbg').classList.remove('on'); };
+$('#gassave').onclick = () => {
+  const v = $('#gas').value.trim();
+  if (v && !GAS_RE.test(v)) { $('#gasrow').classList.add('err'); $('#gasnote').textContent = 'script.google.com の …/exec で終わる URL だけを受け付けます。'; return; }
+  v ? LS.set(LSG, v) : LS.del(LSG);
+  $('#gasrow').classList.remove('err'); $('#gasnote').textContent = 'この端末の中にだけ保存します。公開されるページには書き込まれません。';
+  banner(v ? '送り先を保存しました' : '送り先を消しました');
+};
+$('#defst').innerHTML = ST.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('');
+$('#defst').value = String(defSt());
+$('#defst').onchange = e => LS.set(LSD, e.target.value);
+$('#wipe').onclick = () => { if (!confirm('この端末に保存したリストと送り先を消します。よろしいですか？')) return; [LSQ, LSG, LSD].forEach(LS.del); Q = []; render(); $('#popbg').classList.remove('on'); banner('消しました'); };
+
+/* ---------- 試験用バー ---------- */
+let di = 0;
+$('#d-demo').onclick = () => { const left = DEMO.filter(x => !find(x)); onCodeDemo(left.length ? left[di++ % left.length] : DEMO[0]); };
+$('#d-miss').onclick = () => { const p = '97949' + String(Date.now()).slice(-7); let s = 0; for (let i = 0; i < 12; i++) s += (+p[i]) * (i % 2 ? 3 : 1); onCodeDemo(p + (10 - s % 10) % 10); };
+$('#d-dup').onclick = () => { if (Q[0]) onCodeDemo(Q[0].isbn, true); else banner('先にデモ読取を'); };
+function onCodeDemo(t, force) { if (force) { lastCode = ''; } paused = false; onCode(t); }
+$('#d-hide').onclick = () => { $('#devbar').style.display = 'none'; document.body.classList.remove('dev'); };
+if (new URLSearchParams(location.search).has('dev') === false && location.protocol === 'https:') { $('#devbar').style.display = 'none'; document.body.classList.remove('dev'); }
+
+render();
+</script>
+</body></html>
