@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src https: data:; connect-src https://api.openbd.jp; media-src blob: mediastream:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src https: data:; connect-src https://api.openbd.jp; media-src blob: mediastream:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="藏スキャン">
+<meta name="theme-color" content="#1c1c18">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>藏スキャン</title>
 <style>
 :root{
@@ -367,6 +374,34 @@ body.dev{--devh:40px}
   .frame{width:80%;height:130px}
   .scanlist{min-height:calc(100vh - 140px)}
 }
+
+/* ---------- v0.2：上下固定・全画面 ---------- */
+html,body{height:100%;background:#1c1c18}
+body{overflow:hidden;overscroll-behavior:none}
+.device{height:100vh;height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column;box-shadow:none;
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);background:#1c1c18}
+.screen.scan.on{display:flex;flex-direction:column;flex:1;min-height:0}
+body.dev .screen.scan.on{padding-bottom:40px}
+.scan .topbar{position:static;flex:none;padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:6px}
+.s2{flex:1;min-height:0;display:flex;flex-direction:column}
+.camwrap{flex:none}
+.camera{height:140px}
+.frame{height:64px}
+.switchrow{padding:9px 16px}
+.scanlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 0 12px;background:var(--bg)}
+.scanlist .hitbar{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line)}
+.scanlist .list{border-top:0}
+.actions{position:static;flex:none;padding:6px 16px calc(6px + env(safe-area-inset-bottom));background:var(--bg)}
+.actions button{padding:9px 0;font-size:14px}
+.devbar{padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+@media (min-width:768px){
+  .device{box-shadow:0 0 40px rgba(0,0,0,.4)}
+  .s2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+  .camwrap{position:static}
+  .camera{height:240px}
+  .frame{height:88px}
+  .scanlist{min-height:0}
+}
 </style>
 </head>
 <body class="dev">
@@ -385,8 +420,8 @@ body.dev{--devh:40px}
         <div class="camhint" id="camhint">右上のカメラで読み取りを始めます</div>
       </div>
       <div class="switchrow">
-        <span class="lbl"><b>連続スキャン</b><small id="contnote">読めたらリストに積んで次へ</small></span>
-        <button class="sw" id="contsw" role="switch" aria-checked="true" aria-label="連続スキャン"></button>
+        <span class="lbl"><b>連続スキャンモード</b></span>
+        <button class="sw" id="contsw" role="switch" aria-checked="true" aria-label="連続スキャンモード"></button>
       </div>
     </div>
     <div class="scanlist">
@@ -442,7 +477,7 @@ body.dev{--devh:40px}
   <div class="setrow" style="font-weight:700">送り先（藏のアプリ）</div>
   <div class="setrow" id="gasrow"><input id="gas" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"><button class="setbtn" id="gassave">保存</button></div>
   <div class="secnote" id="gasnote">この端末の中にだけ保存します。公開されるページには書き込まれません。</div>
-  <div class="setrow">既定の読書状況<select id="defst"></select></div>
+  <div class="setrow">デフォルトの読書状況<select id="defst"></select></div>
   <details class="acc"><summary>安全について<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
     <p>この画面は鍵やパスワードを持ちません。書誌の下見は公開の openBD だけを使い、登録と重複の確認は藏のアプリ側（Google ログインが必要）で行います。</p></details>
   <button class="danger-link" id="wipe">この端末のリストと設定を消す</button>
@@ -458,8 +493,8 @@ body.dev{--devh:40px}
 </div>
 <script>
 'use strict';
-/* 藏スキャン v0.1.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
-const VERSION = '0.1.0';
+/* 藏スキャン v0.2.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
+const VERSION = '0.2.0';
 const ZX_SRC = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js';
 const ZX_SRI = ''; // 公開前に README の手順で sha384 を入れる
 const ST = ['読みたい', 'いま読んでる', '読み終わった', '積読'];
@@ -632,7 +667,6 @@ $('#qlist').onclick = e => {
 /* ---------- 連続スキャンの切替 ---------- */
 $('#contsw').onclick = () => {
   const on = !cont(); $('#contsw').setAttribute('aria-checked', String(on));
-  $('#contnote').textContent = on ? '読めたらリストに積んで次へ' : '1冊ごとに確認してから加える';
 };
 
 /* ---------- カメラ（ZXing は押したときだけ読み込む） ---------- */
