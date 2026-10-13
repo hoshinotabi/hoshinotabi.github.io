@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src https: data:; connect-src https://api.openbd.jp; media-src blob: mediastream:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src https://cover.openbd.jp https://ndlsearch.ndl.go.jp https: data:; connect-src https://api.openbd.jp; media-src blob: mediastream:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="robots" content="noindex,nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -402,6 +402,33 @@ body.dev .screen.scan.on{padding-bottom:40px}
   .frame{height:88px}
   .scanlist{min-height:0}
 }
+
+/* ---------- v0.3 ---------- */
+html{background:linear-gradient(#1c1c18 50%,#ffffff 50%)}
+html,body{min-height:100%}
+body{background:transparent}
+.device{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;margin:0 auto}
+.banner{top:calc(10px + env(safe-area-inset-top))}
+.banner .mk-warn{display:none}
+.banner.warn .mk-ok{display:none}
+.banner.warn .mk-warn{display:block}
+.frame{width:auto;height:76%;aspect-ratio:37/26;max-width:80%}
+.frame::after{left:10%;right:10%}
+.scanlist .hitbar{height:40px;box-sizing:border-box;padding:0 16px;gap:8px}
+.hitbar .hl{display:flex;align-items:center;gap:8px;min-width:0}
+.delsent{height:28px;padding:0 12px;border-radius:14px;border:1px solid var(--danger);color:var(--danger);background:transparent;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+.delsent[hidden]{display:none}
+.delsent:active{background:rgba(154,83,64,.08)}
+.actions{justify-content:center}
+.actions .primary{flex:0 1 320px;width:100%}
+.addbtn[aria-disabled]{opacity:.55;pointer-events:none}
+.row .addbtn:not(.filled){padding:6px 14px;border:1px solid var(--deep);border-radius:999px;font-weight:700;font-size:12px}
+.sheet .opt.none{color:var(--muted);justify-content:center}
+.setrow.sub{padding-left:28px;color:var(--muted)}
+.setrow.off{opacity:.45}
+.setrow .sw{background:#d6d6d0}
+.setrow .sw[aria-checked="true"]{background:var(--leaf)}
+.sentq{text-align:center;color:var(--muted);font-size:14px;padding:0 16px 14px}
 </style>
 </head>
 <body class="dev">
@@ -425,15 +452,14 @@ body.dev .screen.scan.on{padding-bottom:40px}
       </div>
     </div>
     <div class="scanlist">
-      <div class="hitbar"><span id="cnt">0冊</span>
+      <div class="hitbar"><span class="hl"><span id="cnt">0冊</span><button class="delsent" id="delsent" hidden>送信済みを削除</button></span>
         <button class="sort" id="bulk">まとめて読書状況<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div class="list" id="qlist"></div>
       <div class="empty" id="empty">まだ本はありません。<br>裏表紙の上段（<b>978</b>・<b>979</b> で始まる方）を枠に合わせてください。</div>
     </div>
   </div>
   <div class="actions">
-    <button class="ghostbtn" id="tidy">整理</button>
-    <button class="primary" id="send" disabled>藏へ送る</button>
+    <button class="primary" id="send" disabled>Notionに送る（0／0冊）</button>
   </div>
 </section>
 </div>
@@ -472,18 +498,28 @@ body.dev .screen.scan.on{padding-bottom:40px}
   <div class="sbtns"><button class="sub2" id="cfretry">読み直す</button><button class="primary" id="cfadd">リストに加える</button></div>
 </div></div>
 
+<!-- 送信後の確認 -->
+<div class="modal" id="sentmodal"><div class="sheet">
+  <div class="grab"><div class="bar"></div></div>
+  <h4 id="sentmsg">本を送信しました</h4>
+  <div class="sentq">送信済みの本を削除しますか？</div>
+  <div class="sbtns"><button class="sub2" id="sentkeep">残す</button><button class="primary" id="sentdel">削除する</button></div>
+</div></div>
+
 <!-- 設定 -->
 <div class="pop-bg" id="popbg"><div class="pop-wrap"><div class="popover">
   <div class="setrow" style="font-weight:700">送り先（藏のアプリ）</div>
   <div class="setrow" id="gasrow"><input id="gas" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"><button class="setbtn" id="gassave">保存</button></div>
   <div class="secnote" id="gasnote">この端末の中にだけ保存します。公開されるページには書き込まれません。</div>
-  <div class="setrow">デフォルトの読書状況<select id="defst"></select></div>
+  <div class="setrow">デフォルトの読書状況<button class="sw" id="defsw" role="switch" aria-checked="true" aria-label="デフォルトの読書状況"></button></div>
+  <div class="setrow sub" id="defrow2">読書状況<select id="defst"></select></div>
+  <div class="setrow">送信時に送信済みの本を即削除<button class="sw" id="autosw" role="switch" aria-checked="false" aria-label="送信時に送信済みの本を即削除"></button></div>
   <details class="acc"><summary>安全について<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
     <p>この画面は鍵やパスワードを持ちません。書誌の下見は公開の openBD だけを使い、登録と重複の確認は藏のアプリ側（Google ログインが必要）で行います。</p></details>
   <button class="danger-link" id="wipe">この端末のリストと設定を消す</button>
 </div></div></div>
 
-<div class="banner" id="banner"><span class="banner-mark"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#7e8a69"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="bantext"></span></div>
+<div class="banner" id="banner"><span class="banner-mark"><svg class="mk-warn" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#9b8e71"/><path d="M16 8.5v9.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="16" cy="23" r="2" fill="#fff"/></svg><svg class="mk-ok" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#7e8a69"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span id="bantext"></span></div>
 
 <div class="devbar" id="devbar">
   <button id="d-demo">デモ読取</button>
@@ -493,17 +529,19 @@ body.dev .screen.scan.on{padding-bottom:40px}
 </div>
 <script>
 'use strict';
-/* 藏スキャン v0.2.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
-const VERSION = '0.2.0';
+/* 藏スキャン v0.3.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
+const VERSION = '0.3.0';
 const ZX_SRC = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js';
 const ZX_SRI = ''; // 公開前に README の手順で sha384 を入れる
 const ST = ['読みたい', 'いま読んでる', '読み終わった', '積読'];
 const OWN = ['紙のみ', '未所有'];
-const LSQ = 'kura.queue', LSG = 'kura.gas', LSD = 'kura.defst';
+const LSQ = 'kura.queue', LSG = 'kura.gas', LSD = 'kura.defst', LSDON = 'kura.defon', LSAUTO = 'kura.autodel';
 const GAS_RE = /^https:\/\/script\.google\.com\/(?:a\/[A-Za-z0-9.\-]+\/)?macros\/s\/[A-Za-z0-9_\-]+\/exec$/;
 const COLORS = ['#556148', '#7e8a69', '#9b8e71', '#6b5d4a', '#4f5a52', '#8a7356'];
 const DEMO = ['9784101010014', '9784003101018', '9784480012340', '9784334000004', '9784873117782', '9784062938709'];
+const NDL_THUMB = 'https://ndlsearch.ndl.go.jp/thumbnail/';
 const URL_MAX = 6000;
+const CHEV = '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 
 const $ = s => document.querySelector(s);
 const LS = {
@@ -517,19 +555,40 @@ function isbnOk(t) {
   let s = 0; for (let i = 0; i < 12; i++) s += (+t[i]) * (i % 2 ? 3 : 1);
   return (10 - s % 10) % 10 === +t[12];
 }
+function stOk(v) { return Number.isInteger(v) && v >= 0 && v < ST.length ? v : null; }
 function loadQ() { try { const q = JSON.parse(LS.get(LSQ, '[]')); return Array.isArray(q) ? q.filter(b => b && isbnOk(b.isbn)) : []; } catch (e) { return []; } }
 let Q = loadQ();
-Q.forEach(b => { b.loading = false; });
+Q.forEach(b => { b.loading = false; b.st = stOk(b.st); });
 function save() { LS.set(LSQ, JSON.stringify(Q.map(({ loading, ...b }) => b))); }
-function defSt() { const n = +LS.get(LSD, '3'); return n >= 0 && n < ST.length ? n : 3; }
+function defOn() { return LS.get(LSDON, '1') === '1'; }
+function autoDel() { return LS.get(LSAUTO, '0') === '1'; }
+function defIdx() { const n = +LS.get(LSD, '3'); return n >= 0 && n < ST.length ? n : 3; }
+function defSt() { return defOn() ? defIdx() : null; }
 function find(isbn) { return Q.find(b => b.isbn === isbn); }
+function unsent() { return Q.filter(b => !b.sent); }
+function ready() { return Q.filter(b => !b.sent && b.st !== null); }
 
 /* ---------- 描画 ---------- */
+function colorOf(b) { return COLORS[(+b.isbn.slice(-3)) % COLORS.length]; }
 function coverHTML(b) {
-  if (b.cover) return `<div class="cover img"><img src="${esc(b.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`;
-  const c = COLORS[(+b.isbn.slice(-3)) % COLORS.length];
-  return `<div class="cover" style="background:${c}">${esc((b.title || '').slice(0, 14))}</div>`;
+  const t = esc((b.title || '').slice(0, 14));
+  // 書影：openBD → なければ国会図書館のサムネイル → どちらも無ければ色の仮書影
+  const src = b.loading || b.noimg ? '' : (b.cover || NDL_THUMB + b.isbn + '.jpg');
+  if (src) return `<div class="cover img" data-isbn="${b.isbn}" data-c="${colorOf(b)}" data-t="${t}"><img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`;
+  return `<div class="cover" style="background:${colorOf(b)}">${t}</div>`;
 }
+function coverFail(img) {
+  const box = img.closest('.cover'); if (!box) return;
+  const b = find(box.dataset.isbn) || (pending && pending.isbn === box.dataset.isbn ? pending : null);
+  if (b) {
+    if (b.cover && img.src.indexOf(NDL_THUMB) !== 0) { b.cover = ''; img.src = NDL_THUMB + b.isbn + '.jpg'; return; }
+    b.noimg = true; save();
+  }
+  box.classList.remove('img'); box.style.background = box.dataset.c; box.textContent = box.dataset.t;
+}
+document.addEventListener('error', e => { if (e.target && e.target.tagName === 'IMG') coverFail(e.target); }, true);
+document.addEventListener('load', e => { const t = e.target; if (t && t.tagName === 'IMG' && t.naturalWidth > 0 && t.naturalWidth < 8) coverFail(t); }, true);
+
 function badges(b) {
   let h = '';
   if (b.sent) h += '<span class="badge done">送信済み</span>';
@@ -537,6 +596,11 @@ function badges(b) {
   else if (b.title) h += '<span class="badge">openBD</span>';
   if (OWN[b.own] === '未所有') h += '<span class="badge done">未所有</span>';
   return h;
+}
+function stButton(b) {
+  if (b.sent) return `<span class="addbtn filled" aria-disabled="true">${b.st !== null ? esc(ST[b.st]) : '―'}</span>`;
+  if (b.st === null) return '<button class="addbtn" data-act="st">＋登録</button>';
+  return `<button class="addbtn filled" data-act="st">${esc(ST[b.st])}${CHEV}</button>`;
 }
 function pubLine(b) { return [b.publisher, b.pubdate].filter(Boolean).join('・'); }
 function rowHTML(b) {
@@ -546,8 +610,7 @@ function rowHTML(b) {
     <div class="bk">${esc(b.title || 'ISBN ' + b.isbn)}</div>
     <div class="sub">${esc(b.author || (b.loading ? '' : '著者不明'))}</div>
     <div class="pub">${esc(pubLine(b) || b.isbn)}</div>
-    <div class="row-foot"><div class="badges">${badges(b)}</div>
-      <button class="stbtn" data-act="st"${b.sent ? ' disabled' : ''}>${ST[b.st]}<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    <div class="row-foot"><div class="badges">${badges(b)}</div>${stButton(b)}</div>
   </div>
   <button class="xdel" data-act="del" aria-label="リストから外す">×</button>
 </div>`;
@@ -556,17 +619,23 @@ function render(flash) {
   $('#qlist').innerHTML = Q.map(rowHTML).join('');
   $('#qlist').style.display = Q.length ? '' : 'none';
   $('#empty').style.display = Q.length ? 'none' : '';
-  const un = Q.filter(b => !b.sent).length;
-  $('#cnt').textContent = `${Q.length}冊` + (Q.length !== un ? `（未送信 ${un}）` : '');
-  $('#send').textContent = un ? `藏へ送る（${un}冊）` : '藏へ送る';
-  $('#send').disabled = !un;
-  $('#tidy').disabled = !Q.some(b => b.sent);
+  const un = unsent().length, rd = ready().length, sentN = Q.length - un;
+  $('#cnt').textContent = `${un}冊`;
+  $('#delsent').hidden = !sentN;
+  $('#delsent').textContent = `送信済みを削除（${sentN}）`;
+  $('#send').textContent = `Notionに送る（${rd}／${un}冊）`;
+  $('#send').disabled = !rd;
+  $('#bulk').disabled = !un;
   if (flash) { const r = $(`.row[data-isbn="${flash}"]`); if (r) { r.classList.add('flash'); r.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
 }
 
-/* ---------- バナー ---------- */
+/* ---------- バナー（通常＝✓、注意＝！） ---------- */
 let banT = 0;
-function banner(t) { $('#bantext').textContent = t; $('#banner').classList.add('on'); clearTimeout(banT); banT = setTimeout(() => $('#banner').classList.remove('on'), 1800); }
+function banner(t, warn) {
+  $('#banner').classList.toggle('warn', !!warn);
+  $('#bantext').textContent = t; $('#banner').classList.add('on');
+  clearTimeout(banT); banT = setTimeout(() => $('#banner').classList.remove('on'), 2000);
+}
 
 /* ---------- 書誌の下見（openBD のみ、鍵不要） ---------- */
 function fmtDate(d) { d = String(d || '').replace(/\D/g, ''); if (d.length >= 6) return d.slice(0, 4) + '-' + d.slice(4, 6); return d.slice(0, 4); }
@@ -592,7 +661,7 @@ let pending = null;
 function cont() { return $('#contsw').getAttribute('aria-checked') === 'true'; }
 async function addIsbn(isbn) {
   const ex = find(isbn);
-  if (ex) { banner('この本はもうリストにあります'); render(isbn); return; }
+  if (ex) { banner(ex.sent ? 'この本は送信済みです' : 'この本はもうリストにあります', true); render(isbn); return; }
   const b = { isbn, st: defSt(), own: 0, tag: '', memo: '', at: Date.now(), loading: true };
   if (cont()) {
     Q.unshift(b); render(isbn); save();
@@ -606,13 +675,18 @@ async function addIsbn(isbn) {
 function bookhead(b) {
   return `${coverHTML(b)}<div><div class="bk">${esc(b.title || 'ISBN ' + b.isbn)}</div><div class="sub">${esc([b.author, pubLine(b)].filter(Boolean).join('　') || (b.loading ? '読み込み中…' : '下見なし（藏側で補完します）'))}</div></div>`;
 }
-function chips(el, list, cur, fn) {
+// 選択済みのチップをもう一度押すと未選択に戻る（allowNone のとき）
+function chips(el, list, cur, fn, allowNone) {
   el.innerHTML = list.map((t, i) => `<button class="chip" aria-pressed="${i === cur}" data-i="${i}">${esc(t)}</button>`).join('');
-  el.onclick = e => { const c = e.target.closest('.chip'); if (!c) return; fn(+c.dataset.i); chips(el, list, +c.dataset.i, fn); };
+  el.onclick = e => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    let i = +c.dataset.i; if (allowNone && i === cur) i = null;
+    cur = i; fn(i); chips(el, list, i, fn, allowNone);
+  };
 }
 function openConfirm(b) {
   const h = $('#cfhead'); h.innerHTML = bookhead(b); h.classList.toggle('loading', !!b.loading);
-  chips($('#cfst'), ST, b.st, i => { b.st = i; });
+  chips($('#cfst'), ST, b.st, i => { b.st = i; }, true);
   if (!$('#cfmodal').classList.contains('on')) openModal('cfmodal');
 }
 $('#cfadd').onclick = () => { if (!pending) return; const b = pending; pending = null; Q.unshift(b); save(); closeModals(); render(b.isbn); resume(); };
@@ -629,24 +703,27 @@ document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e =
 let stTarget = null; // isbn または 'all'
 function openStatus(target) {
   stTarget = target;
-  const cur = target === 'all' ? -1 : find(target).st;
+  const b = target === 'all' ? null : find(target);
+  const cur = b ? b.st : -1;
   $('#sttitle').textContent = target === 'all' ? '未送信の本をまとめて' : '読書状況';
-  $('#stopts').innerHTML = ST.map((t, i) => `<button class="opt" aria-selected="${i === cur}" data-i="${i}">${esc(t)}<svg class="ck" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></button>`).join('');
+  let h = ST.map((t, i) => `<button class="opt" aria-selected="${i === cur}" data-i="${i}">${esc(t)}<svg class="ck" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></button>`).join('');
+  if (target === 'all' || cur !== null) h += '<button class="opt none" data-i="-1">未選択に戻す</button>';
+  $('#stopts').innerHTML = h;
   openModal('stmodal');
 }
 $('#stopts').onclick = e => {
-  const o = e.target.closest('.opt'); if (!o) return; const i = +o.dataset.i;
-  if (stTarget === 'all') { Q.forEach(b => { if (!b.sent) b.st = i; }); banner(`未送信の本を「${ST[i]}」にしました`); }
+  const o = e.target.closest('.opt'); if (!o) return; const v = +o.dataset.i, i = v < 0 ? null : v;
+  if (stTarget === 'all') { unsent().forEach(b => { b.st = i; }); banner(i === null ? '未送信の本を未選択に戻しました' : `未送信の本を「${ST[i]}」にしました`); }
   else { const b = find(stTarget); if (b) b.st = i; }
   save(); render(); setTimeout(closeModals, 160);
 };
-$('#bulk').onclick = () => { if (Q.some(b => !b.sent)) openStatus('all'); };
+$('#bulk').onclick = () => { if (unsent().length) openStatus('all'); };
 
 let edIsbn = null;
 function openEdit(isbn) {
   const b = find(isbn); if (!b) return; edIsbn = isbn;
   $('#edhead').innerHTML = bookhead(b);
-  chips($('#edst'), ST, b.st, i => { b.st = i; save(); render(); });
+  chips($('#edst'), ST, b.st, i => { b.st = i; save(); render(); }, true);
   chips($('#edown'), OWN, b.own, i => { b.own = i; save(); render(); });
   $('#edtag').value = b.tag || ''; $('#edmemo').value = b.memo || '';
   openModal('edmodal');
@@ -664,10 +741,8 @@ $('#qlist').onclick = e => {
   if (!find(isbn).sent) openEdit(isbn);
 };
 
-/* ---------- 連続スキャンの切替 ---------- */
-$('#contsw').onclick = () => {
-  const on = !cont(); $('#contsw').setAttribute('aria-checked', String(on));
-};
+/* ---------- 連続スキャンモード ---------- */
+$('#contsw').onclick = () => { $('#contsw').setAttribute('aria-checked', String(!cont())); };
 
 /* ---------- カメラ（ZXing は押したときだけ読み込む） ---------- */
 let reader = null, running = false, paused = false, lastCode = '', lastAt = 0;
@@ -688,7 +763,7 @@ async function startCam() {
     const hints = new Map(); hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
     reader = new ZXing.BrowserMultiFormatReader(hints);
     await reader.decodeFromConstraints({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }, 'video', res => { if (res) onCode(res.getText()); });
-    running = true; paused = false; $('#camera').classList.add('live'); hint('上段のバーコード（978・979）を枠に合わせてください');
+    running = true; paused = false; $('#camera').classList.add('live'); hint('上段のバーコード（978・979）を枠に');
   } catch (e) {
     stopCam();
     hint(e && e.name === 'NotAllowedError' ? 'カメラが許可されていません（設定→Safari→カメラ）' : 'カメラを開けませんでした：' + (e && e.message || e));
@@ -718,23 +793,43 @@ function b64url(str) {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function buildUrl(gas, items) { return gas + '?batch=' + b64url(JSON.stringify({ v: 1, items: items.map(b => ({ i: b.isbn, s: ST[b.st], o: OWN[b.own], t: b.tag || undefined, m: b.memo || undefined })) })); }
+function openGas(url) {
+  // 別窓で開き、この画面は残す。開けなければこの窓で開く
+  let w = null; try { w = window.open(url, '_blank'); } catch (e) {}
+  if (w) { try { w.opener = null; } catch (e) {} return true; }
+  return false;
+}
+function deleteSent() { const n = Q.filter(b => b.sent).length; Q = Q.filter(b => !b.sent); save(); render(); return n; }
+let lastSentN = 0;
 $('#send').onclick = () => {
   const gas = LS.get(LSG, '');
-  if (!GAS_RE.test(gas)) { banner('先に送り先を設定してください'); openPop(); return; }
-  const un = Q.filter(b => !b.sent).reverse();
+  if (!GAS_RE.test(gas)) { banner('先に送り先を設定してください', true); openPop(); return; }
+  const rd = ready().reverse();
+  if (!rd.length) { banner('読書状況を選んだ本がありません', true); return; }
   let items = [];
-  for (const b of un) { if (buildUrl(gas, items.concat(b)).length > URL_MAX) break; items.push(b); }
+  for (const b of rd) { if (buildUrl(gas, items.concat(b)).length > URL_MAX) break; items.push(b); }
   if (!items.length) return;
   const url = buildUrl(gas, items);
-  items.forEach(b => { b.sent = Date.now(); }); save(); render();
-  if (items.length < un.length) banner(`長すぎるため ${items.length} 冊ずつ送ります`);
-  stopCam();
-  setTimeout(() => { location.href = url; }, items.length < un.length ? 900 : 0);
+  items.forEach(b => { b.sent = Date.now(); }); save();
+  const n = items.length, rest = rd.length - n;
+  const opened = openGas(url);
+  const msg = `${n}冊の本を送信しました` + (rest ? `（残り ${rest} 冊はもう一度送ってください）` : '');
+  if (autoDel()) { deleteSent(); banner(msg); }
+  else { render(); lastSentN = n; $('#sentmsg').textContent = msg; openModal('sentmodal'); }
+  if (!opened) setTimeout(() => { location.href = url; }, autoDel() ? 900 : 0);
 };
-$('#tidy').onclick = () => { const n = Q.filter(b => b.sent).length; if (!n) return; Q = Q.filter(b => !b.sent); save(); render(); banner(`送信済み ${n} 冊を片付けました`); };
+$('#sentkeep').onclick = () => { closeModals(); };
+$('#sentdel').onclick = () => { closeModals(); const n = deleteSent(); banner(`送信済み ${n} 冊を削除しました`); };
+$('#delsent').onclick = () => { const n = deleteSent(); if (n) banner(`送信済み ${n} 冊を削除しました`); };
 
 /* ---------- 設定 ---------- */
-function openPop() { $('#gas').value = LS.get(LSG, ''); $('#gasrow').classList.remove('err'); $('#popbg').classList.add('on'); }
+function syncSet() {
+  $('#defsw').setAttribute('aria-checked', String(defOn()));
+  $('#defst').disabled = !defOn();
+  $('#defrow2').classList.toggle('off', !defOn());
+  $('#autosw').setAttribute('aria-checked', String(autoDel()));
+}
+function openPop() { $('#gas').value = LS.get(LSG, ''); $('#gasrow').classList.remove('err'); syncSet(); $('#popbg').classList.add('on'); }
 $('#gear').onclick = openPop;
 $('#popbg').onclick = e => { if (e.target === $('#popbg') || e.target.classList.contains('pop-wrap')) $('#popbg').classList.remove('on'); };
 $('#gassave').onclick = () => {
@@ -745,19 +840,22 @@ $('#gassave').onclick = () => {
   banner(v ? '送り先を保存しました' : '送り先を消しました');
 };
 $('#defst').innerHTML = ST.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('');
-$('#defst').value = String(defSt());
+$('#defst').value = String(defIdx());
 $('#defst').onchange = e => LS.set(LSD, e.target.value);
-$('#wipe').onclick = () => { if (!confirm('この端末に保存したリストと送り先を消します。よろしいですか？')) return; [LSQ, LSG, LSD].forEach(LS.del); Q = []; render(); $('#popbg').classList.remove('on'); banner('消しました'); };
+$('#defsw').onclick = () => { LS.set(LSDON, defOn() ? '0' : '1'); syncSet(); };
+$('#autosw').onclick = () => { LS.set(LSAUTO, autoDel() ? '0' : '1'); syncSet(); };
+$('#wipe').onclick = () => { if (!confirm('この端末に保存したリストと設定を消します。よろしいですか？')) return; [LSQ, LSG, LSD, LSDON, LSAUTO].forEach(LS.del); Q = []; render(); syncSet(); $('#popbg').classList.remove('on'); banner('消しました'); };
 
 /* ---------- 試験用バー ---------- */
 let di = 0;
 $('#d-demo').onclick = () => { const left = DEMO.filter(x => !find(x)); onCodeDemo(left.length ? left[di++ % left.length] : DEMO[0]); };
 $('#d-miss').onclick = () => { const p = '97949' + String(Date.now()).slice(-7); let s = 0; for (let i = 0; i < 12; i++) s += (+p[i]) * (i % 2 ? 3 : 1); onCodeDemo(p + (10 - s % 10) % 10); };
-$('#d-dup').onclick = () => { if (Q[0]) onCodeDemo(Q[0].isbn, true); else banner('先にデモ読取を'); };
+$('#d-dup').onclick = () => { if (Q[0]) onCodeDemo(Q[0].isbn, true); else banner('先にデモ読取を', true); };
 function onCodeDemo(t, force) { if (force) { lastCode = ''; } paused = false; onCode(t); }
 $('#d-hide').onclick = () => { $('#devbar').style.display = 'none'; document.body.classList.remove('dev'); };
 if (new URLSearchParams(location.search).has('dev') === false && location.protocol === 'https:') { $('#devbar').style.display = 'none'; document.body.classList.remove('dev'); }
 
+syncSet();
 render();
 </script>
 </body></html>
