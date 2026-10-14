@@ -437,6 +437,18 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
 @media (min-width:768px){
   .frame{width:min(70%,330px)}
 }
+
+/* ---------- v0.6：ライトの丸ボタン・シートのスワイプ・入力時にズームしない ---------- */
+.torchbtn{position:absolute;right:8px;bottom:8px;width:44px;height:44px;border-radius:22px;z-index:3;
+  display:flex;align-items:center;justify-content:center;background:rgba(28,28,24,.62);color:#fff;border:1px solid rgba(255,255,255,.28) !important}
+.torchbtn.on{background:#fff;color:var(--deep)}
+.torchbtn[hidden]{display:none}
+.grab{padding:10px 0 8px}
+.sheet .grab,.sheet .bookhead,.sheet h4{touch-action:none}
+.field input,.field select,.field textarea,.setrow input{font-size:16px}
+.modal{bottom:var(--kb,0px)}
+.modal.kb .sheet{margin-bottom:8px}
+.modal.kb .sheet.tall{max-height:calc(100% - 16px - env(safe-area-inset-top))}
 </style>
 </head>
 <body class="dev">
@@ -453,7 +465,8 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
         <video id="video" muted playsinline autoplay></video>
         <div class="frame"></div>
         <div class="camhint" id="camhint">右上のカメラで読み取りを始めます</div>
-        <div class="camtools"><button class="camchip" id="zoombtn" hidden aria-label="ズーム">2×</button><button class="camchip" id="torchbtn" hidden aria-label="ライト">ライト</button></div>
+        <div class="camtools"><button class="camchip" id="zoombtn" hidden aria-label="ズーム">2×</button></div>
+        <button class="torchbtn" id="torchbtn" hidden aria-label="ライト"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><g id="torchico" transform="rotate(-90 12 12)"><!-- TORCH_ICON_START --><path d="M2.5 9.5h8.5v5H2.5z"/><path d="M11 9.5l4.5-3v11l-4.5-3"/><path d="M6 12h2"/><path d="M18.5 8.5l2.5-1.5M19 12h3M18.5 15.5l2.5 1.5"/><!-- TORCH_ICON_END --></g></svg></button>
       </div>
       <div class="switchrow">
         <span class="lbl"><b>連続スキャンモード</b></span>
@@ -538,10 +551,10 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
 </div>
 <script>
 'use strict';
-/* 藏スキャン v0.5.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
-const VERSION = '0.5.0';
+/* 藏スキャン v0.6.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
+const VERSION = '0.6.0';
 const ZX_SRC = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js';
-const ZX_SRI = 'sha384-TtsuxcGiK05VJdl5IpM/c6yjO35xVteBu9ZuED0SSz+dq2/tgdwNB/PrzzXIt9QK'; // 公開前に README の手順で sha384 を入れる
+const ZX_SRI = ''; // 公開前に README の手順で sha384 を入れる
 const ST = ['読みたい', 'いま読んでる', '読み終わった', '積読'];
 const OWN = ['紙のみ', '未所有'];
 const LSQ = 'kura.queue', LSG = 'kura.gas', LSD = 'kura.defst', LSDON = 'kura.defon', LSAUTO = 'kura.autodel';
@@ -963,6 +976,38 @@ function fitH() {
 }
 window.addEventListener('resize', fitH);
 window.addEventListener('orientationchange', () => setTimeout(fitH, 300));
+/* ---------- v0.6：シートを下へスワイプして閉じる ---------- */
+document.querySelectorAll('.modal .sheet').forEach(sh => {
+  const hs = sh.querySelectorAll('.grab, .bookhead, h4'); if (!hs.length) return;
+  let on = false, y0 = 0, dy = 0, t0 = 0;
+  const down = e => {
+    if (matchMedia('(min-width:768px)').matches) return;
+    on = true; y0 = e.clientY; dy = 0; t0 = Date.now(); sh.classList.add('dragging');
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  const move = e => {
+    if (!on) return; dy = e.clientY - y0;
+    const d = dy > 0 ? dy : -Math.min(20, Math.sqrt(-dy) * 2.5);
+    sh.style.transform = 'translateY(' + d + 'px)';
+  };
+  const up = () => {
+    if (!on) return; on = false;
+    const v = dy / Math.max(1, Date.now() - t0);
+    sh.classList.remove('dragging'); sh.style.transform = '';
+    if (dy > sh.offsetHeight * 0.28 || (dy > 40 && v > 0.5)) closeModals();
+  };
+  hs.forEach(h => { h.addEventListener('pointerdown', down); h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up); });
+});
+/* ---------- v0.6：キーボードが出たらシートをその上に上げて上へ広げる ---------- */
+function onVV() {
+  const vv = window.visualViewport; if (!vv) return;
+  const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  const open = kb > 80;
+  document.documentElement.style.setProperty('--kb', (open ? kb : 0) + 'px');
+  document.querySelectorAll('.modal').forEach(m => m.classList.toggle('kb', open));
+  if (open) { const a = document.activeElement; if (a && a.closest && a.closest('.sheet')) setTimeout(() => a.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60); }
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', onVV); visualViewport.addEventListener('scroll', onVV); }
 fitH();
 window.addEventListener('scroll', () => { if (window.scrollY) window.scrollTo(0, 0); }, { passive: true });
 document.addEventListener('touchmove', e => { if (!e.target.closest('.scanlist, .sheet, .pop')) e.preventDefault(); }, { passive: false });
