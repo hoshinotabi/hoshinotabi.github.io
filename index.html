@@ -446,9 +446,49 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
 .grab{padding:10px 0 8px}
 .sheet .grab,.sheet .bookhead,.sheet h4{touch-action:none}
 .field input,.field select,.field textarea,.setrow input{font-size:16px}
-.modal{bottom:var(--kb,0px)}
-.modal.kb .sheet{margin-bottom:8px}
-.modal.kb .sheet.tall{max-height:calc(100% - 16px - env(safe-area-inset-top))}
+
+/* ---------- v0.7：2×の位置・ライトの左右位置・タグ／メモのボタンと入力シート ---------- */
+.camtools{right:72px}
+.torchbtn{right:16px;bottom:10px}
+.torchbtn svg{width:22px;height:22px}
+.row-foot .badges{min-width:0;display:flex;flex-wrap:wrap;gap:4px}
+.rowbtns{display:flex;align-items:center;gap:6px;margin-left:auto;flex:none}
+.rowbtns .addbtn{margin-left:0;height:30px;box-sizing:border-box;display:inline-flex;align-items:center}
+.txbtns{display:flex;gap:6px}
+.txbtn{position:relative;width:30px;height:30px;border-radius:15px;flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--wash);color:var(--leaf);border:1.5px solid var(--mist) !important}
+.txbtn svg{width:16px;height:16px}
+.txbtn.on{background:var(--deep);color:#fff;border-color:var(--deep) !important}
+.txbtn[aria-disabled]{opacity:.55;pointer-events:none}
+.txbadge{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:9px;
+  background:var(--bough);color:#fff;font-size:10px;font-weight:700;line-height:14px;text-align:center;border:1.5px solid #fff}
+.txbadge.dot{min-width:0;width:11px;height:11px;padding:0;top:-3px;right:-3px}
+.skel-host.loading .txbtns{visibility:hidden}
+.field.tx{align-items:flex-start}
+.field.tx label{padding-top:3px}
+.field .txval{flex:1;min-width:0;text-align:left;background:none;border:0;padding:2px 0;font-size:15px;line-height:1.5;color:var(--ink);
+  white-space:pre-wrap;word-break:break-word;display:block;cursor:text}
+.field #edtagv{display:flex;flex-wrap:wrap;gap:4px}
+.tchip{font-size:12px;background:var(--wash);color:var(--deep);border-radius:999px;padding:3px 9px;font-weight:700}
+.txval .ph{color:#a9ab9f;font-weight:400}
+.txsheet{position:relative;padding:12px 16px 10px}
+.txhead{display:flex;align-items:center;gap:10px}
+.txic{width:32px;height:32px;border-radius:16px;background:var(--wash);color:var(--deep);display:flex;align-items:center;justify-content:center;flex:none}
+.txic svg{width:18px;height:18px}
+.txttl{flex:1;min-width:0;display:flex;flex-direction:column}
+.txttl b{font-size:14px}
+.txttl span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.txdone{flex:none;background:var(--deep);color:#fff;font-size:13px;font-weight:700;padding:7px 16px;border-radius:999px}
+#txarea{display:block;width:100%;box-sizing:border-box;margin-top:10px;border:1.5px solid var(--mist);border-radius:12px;background:#fff;
+  padding:10px 12px;font-size:16px;line-height:1.5;resize:none;outline:none;overflow-y:hidden;min-height:48px;color:var(--ink);
+  font-family:inherit;white-space:pre-wrap;word-break:break-word}
+#txarea:focus{border-color:var(--leaf)}
+.txfoot{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:6px 2px 0}
+@media (max-width:767px){
+  .modal.top{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
+  .modal.top .sheet{margin:calc(8px + env(safe-area-inset-top)) 8px 0;transform:translateY(calc(-100% - 80px))}
+  .modal.top.on .sheet{transform:translateY(0)}
+}
 </style>
 </head>
 <body class="dev">
@@ -466,7 +506,7 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
         <div class="frame"></div>
         <div class="camhint" id="camhint">右上のカメラで読み取りを始めます</div>
         <div class="camtools"><button class="camchip" id="zoombtn" hidden aria-label="ズーム">2×</button></div>
-        <button class="torchbtn" id="torchbtn" hidden aria-label="ライト"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><g id="torchico" transform="rotate(-90 12 12)"><!-- TORCH_ICON_START --><path d="M2.5 9.5h8.5v5H2.5z"/><path d="M11 9.5l4.5-3v11l-4.5-3"/><path d="M6 12h2"/><path d="M18.5 8.5l2.5-1.5M19 12h3M18.5 15.5l2.5 1.5"/><!-- TORCH_ICON_END --></g></svg></button>
+        <button class="torchbtn" id="torchbtn" hidden aria-label="ライト"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g id="torchico" transform="rotate(-90 12 12)"><!-- TORCH_ICON_START --><path d="M15 9V15M15 9H6C5.06812 9 4.60218 9 4.23463 9.15224C3.74458 9.35523 3.35523 9.74458 3.15224 10.2346C3 10.6022 3 11.0681 3 12C3 12.9319 3 13.3978 3.15224 13.7654C3.35523 14.2554 3.74458 14.6448 4.23463 14.8478C4.60218 15 5.06812 15 6 15H15M15 9C17.4 6 21 6 21 6V18C17.4 18 15 15 15 15M9 12H11"/><!-- TORCH_ICON_END --></g></svg></button>
       </div>
       <div class="switchrow">
         <span class="lbl"><b>連続スキャンモード</b></span>
@@ -494,6 +534,13 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
   <button class="cancel" data-close>キャンセル</button>
 </div></div>
 
+<!-- タグ・メモの入力 -->
+<div class="modal top" id="txmodal"><div class="sheet txsheet">
+  <div class="txhead"><span class="txic" id="txic"></span><div class="txttl"><b id="txlabel">タグ</b><span id="txbook"></span></div><button class="txdone" id="txdone">完了</button></div>
+  <textarea id="txarea" rows="1" autocomplete="off"></textarea>
+  <div class="txfoot"><span id="txnote"></span><span id="txcount"></span></div>
+</div></div>
+
 <!-- 1冊の設定 -->
 <div class="modal" id="edmodal"><div class="sheet tall">
   <div class="grab"><div class="bar"></div></div>
@@ -502,12 +549,12 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
     <div class="group">
       <div class="field"><label>読書状況</label><div class="chips" id="edst"></div></div>
       <div class="field"><label>所蔵形態</label><div class="chips" id="edown"></div></div>
-      <div class="field"><label>タグ</label><input id="edtag" maxlength="40" placeholder="読点で区切る"></div>
-      <div class="field"><label>メモ</label><input id="edmemo" maxlength="60" placeholder="60字まで"></div>
+      <div class="field tx"><label>タグ</label><button class="txval" id="edtagv" data-tx="tag"></button></div>
+      <div class="field tx"><label>メモ</label><button class="txval" id="edmemov" data-tx="memo"></button></div>
     </div>
     <div class="secnote">その他の項目（媒体・内容種別・NAS など）は、藏に送ったあとの確認画面で整えます。</div>
   </div>
-  <button class="delrow" id="eddel">リストから外す</button>
+  <button class="delrow" id="eddel">リストから削除</button>
   <button class="cancel" data-close>閉じる</button>
 </div></div>
 
@@ -551,8 +598,8 @@ body{height:var(--appH,100%);overflow:hidden;position:relative}
 </div>
 <script>
 'use strict';
-/* 藏スキャン v0.6.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
-const VERSION = '0.6.0';
+/* 藏スキャン v0.7.0 — GitHub Pages に置く読み取り専用画面。鍵・パスワード・NAS の住所は持たない。 */
+const VERSION = '0.7.0';
 const ZX_SRC = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js';
 const ZX_SRI = ''; // 公開前に README の手順で sha384 を入れる
 const ST = ['読みたい', 'いま読んでる', '読み終わった', '積読'];
@@ -632,9 +679,9 @@ function rowHTML(b) {
     <div class="bk">${esc(b.title || 'ISBN ' + b.isbn)}</div>
     <div class="sub">${esc(b.author || (b.loading ? '' : '著者不明'))}</div>
     <div class="pub">${esc(pubLine(b) || b.isbn)}</div>
-    <div class="row-foot"><div class="badges">${badges(b)}</div>${stButton(b)}</div>
+    <div class="row-foot"><div class="badges">${badges(b)}</div><div class="rowbtns"><span class="txbtns">${txBtns(b)}</span>${stButton(b)}</div></div>
   </div>
-  <button class="xdel" data-act="del" aria-label="リストから外す">×</button>
+  <button class="xdel" data-act="del" aria-label="リストから削除">×</button>
 </div>`;
 }
 function render(flash) {
@@ -747,19 +794,19 @@ function openEdit(isbn) {
   $('#edhead').innerHTML = bookhead(b);
   chips($('#edst'), ST, b.st, i => { b.st = i; save(); render(); }, true);
   chips($('#edown'), OWN, b.own, i => { b.own = i; save(); render(); });
-  $('#edtag').value = b.tag || ''; $('#edmemo').value = b.memo || '';
+  edTx(b);
   openModal('edmodal');
 }
-$('#edtag').oninput = e => { const b = find(edIsbn); if (b) { b.tag = e.target.value.slice(0, 40); save(); } };
-$('#edmemo').oninput = e => { const b = find(edIsbn); if (b) { b.memo = e.target.value.slice(0, 60); save(); } };
+document.querySelectorAll('.txval').forEach(el => { el.onclick = () => openTx(edIsbn, el.dataset.tx, 'ed'); });
 $('#eddel').onclick = () => { removeBook(edIsbn); closeModals(); };
 
-function removeBook(isbn) { const b = find(isbn); Q = Q.filter(x => x.isbn !== isbn); save(); render(); if (b) banner(`「${b.title || b.isbn}」を外しました`); }
+function removeBook(isbn) { const b = find(isbn); Q = Q.filter(x => x.isbn !== isbn); save(); render(); if (b) banner(`「${b.title || b.isbn}」をリストから削除しました`); }
 $('#qlist').onclick = e => {
   const row = e.target.closest('.row'); if (!row) return; const isbn = row.dataset.isbn;
   const act = e.target.closest('[data-act]');
   if (act && act.dataset.act === 'del') return removeBook(isbn);
   if (act && act.dataset.act === 'st') return openStatus(isbn);
+  if (act && (act.dataset.act === 'tag' || act.dataset.act === 'memo')) return openTx(isbn, act.dataset.act, 'row');
   if (!find(isbn).sent) openEdit(isbn);
 };
 
@@ -999,17 +1046,82 @@ document.querySelectorAll('.modal .sheet').forEach(sh => {
   hs.forEach(h => { h.addEventListener('pointerdown', down); h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up); });
 });
 /* ---------- v0.6：キーボードが出たらシートをその上に上げて上へ広げる ---------- */
-function onVV() {
-  const vv = window.visualViewport; if (!vv) return;
-  const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  const open = kb > 80;
-  document.documentElement.style.setProperty('--kb', (open ? kb : 0) + 'px');
-  document.querySelectorAll('.modal').forEach(m => m.classList.toggle('kb', open));
-  if (open) { const a = document.activeElement; if (a && a.closest && a.closest('.sheet')) setTimeout(() => a.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60); }
-}
+function onVV() { if (tx && $('#txmodal').classList.contains('on')) txGrow(); }
 if (window.visualViewport) { visualViewport.addEventListener('resize', onVV); visualViewport.addEventListener('scroll', onVV); }
+/* ---------- v0.7：タグ・メモの入力シート ---------- */
+function icTag() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 12C11 12.8284 10.3284 13.5 9.5 13.5C8.67157 13.5 8 12.8284 8 12C8 11.1716 8.67157 10.5 9.5 10.5C10.3284 10.5 11 11.1716 11 12Z"/><path d="M21 16V8C21 6.89543 20.1046 6 19 6H8.82843C8.298 6 7.78929 6.21071 7.41422 6.58579L3.41422 10.5858C2.63317 11.3668 2.63317 12.6332 3.41422 13.4142L7.41422 17.4142C7.78929 17.7893 8.298 18 8.82843 18H19C20.1046 18 21 17.1046 21 16Z"/></svg>'; }
+function icMemo() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4445 19.6875H20.9445M14.4443 5.68747L5.44587 14.6859C4.78722 15.3446 4.26719 16.1441 4.10888 17.062C3.94903 17.9888 3.89583 19.139 4.44432 19.6875C4.99281 20.236 6.14299 20.1828 7.0698 20.0229C7.98772 19.8646 8.78722 19.3446 9.44587 18.6859L18.4443 9.68747M14.4443 5.68747C14.4443 5.68747 17.4443 2.68747 19.4443 4.68747C21.4443 6.68747 18.4443 9.68747 18.4443 9.68747M14.4443 5.68747L18.4443 9.68747"/></svg>'; }
+function txMax(kind) { return kind === 'tag' ? 40 : 60; }
+function tagList(v) { return String(v || '').split(/[、,，\n]+/).map(x => x.trim()).filter(Boolean); }
+function txBtns(b) {
+  const one = (k, ic, lab) => {
+    const v = String(b[k] || '').trim();
+    if (b.sent && !v) return '';
+    const badge = v ? (k === 'tag' ? `<span class="txbadge">${tagList(v).length}</span>` : '<span class="txbadge dot"></span>') : '';
+    return `<button class="txbtn${v ? ' on' : ''}" data-act="${k}" aria-label="${lab}"${b.sent ? ' aria-disabled="true"' : ''}>${ic}${badge}</button>`;
+  };
+  return one('tag', icTag(), 'タグ') + one('memo', icMemo(), 'メモ');
+}
+function edTx(b) {
+  $('#edtagv').innerHTML = b.tag && tagList(b.tag).length ? tagList(b.tag).map(x => `<span class="tchip">${esc(x)}</span>`).join('') : '<span class="ph">例：背景、パース、色彩</span>';
+  $('#edmemov').innerHTML = b.memo ? esc(b.memo) : '<span class="ph">60字まで・改行できます</span>';
+}
+let tx = null;
+function openTx(isbn, kind, from) {
+  const b = find(isbn); if (!b || b.sent) return;
+  tx = { isbn, kind, from };
+  $('#txlabel').textContent = kind === 'tag' ? 'タグ' : 'メモ';
+  $('#txic').innerHTML = kind === 'tag' ? icTag() : icMemo();
+  $('#txbook').textContent = b.title || ('ISBN ' + b.isbn);
+  const ta = $('#txarea');
+  ta.maxLength = txMax(kind);
+  ta.placeholder = kind === 'tag' ? '例：背景、パース、色彩' : '例：第3章の作例を模写する';
+  ta.value = b[kind] || '';
+  openModal('txmodal');
+  try { ta.focus({ preventScroll: true }); } catch (_) { ta.focus(); }
+  const n = ta.value.length; try { ta.setSelectionRange(n, n); } catch (_) {}
+  txSync();
+}
+function txSync() {
+  if (!tx) return;
+  const ta = $('#txarea');
+  if (tx.kind === 'tag' && /\n/.test(ta.value)) { const p = ta.selectionStart; ta.value = ta.value.replace(/\n/g, '、'); try { ta.setSelectionRange(p, p); } catch (_) {} }
+  const b = find(tx.isbn);
+  if (b) {
+    b[tx.kind] = ta.value.slice(0, txMax(tx.kind)); save();
+    const cell = document.querySelector(`.row[data-isbn="${b.isbn}"] .txbtns`); if (cell) cell.innerHTML = txBtns(b);
+  }
+  $('#txcount').textContent = ta.value.length + '/' + txMax(tx.kind);
+  $('#txnote').textContent = tx.kind === 'tag' ? (tagList(ta.value).length + '個・読点か改行で区切る') : '改行できます';
+  txGrow();
+}
+function txGrow() {
+  const ta = $('#txarea'), sh = ta.closest('.sheet');
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const max = Math.max(72, vh - (sh.offsetTop + ta.offsetTop) - 40);
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight + 3, max) + 'px';
+  ta.style.overflowY = ta.scrollHeight + 3 > max ? 'auto' : 'hidden';
+}
+function closeTx() {
+  const t = tx; $('#txarea').blur(); closeModals(); tx = null;
+  if (t && t.from === 'ed') setTimeout(() => openEdit(t.isbn), 0);
+}
+$('#txarea').addEventListener('input', txSync);
+$('#txdone').onclick = closeTx;
+/* ライトはカメラボタンと左右の中心を揃える */
+function alignTorch() {
+  const c = $('#camera'), t = $('#camtog'), b = $('#torchbtn'); if (!c || !t || !b) return;
+  const r = c.getBoundingClientRect(), q = t.getBoundingClientRect(); if (!r.width || !q.width) return;
+  b.style.right = Math.round(r.right - q.right + (q.width - 44) / 2) + 'px';
+}
+window.addEventListener('resize', alignTorch);
+$('#camtog').addEventListener('click', () => setTimeout(alignTorch, 300));
+alignTorch();
 fitH();
-window.addEventListener('scroll', () => { if (window.scrollY) window.scrollTo(0, 0); }, { passive: true });
+function typing() { const a = document.activeElement; return !!a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); }
+window.addEventListener('scroll', () => { if (window.scrollY && !typing()) window.scrollTo(0, 0); }, { passive: true });
+document.addEventListener('focusout', () => setTimeout(() => { if (!typing() && window.scrollY) window.scrollTo(0, 0); }, 150));
 document.addEventListener('touchmove', e => { if (!e.target.closest('.scanlist, .sheet, .pop')) e.preventDefault(); }, { passive: false });
 
 syncSet();
