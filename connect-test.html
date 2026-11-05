@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>藏API 接続テスト</title>
+<style>
+:root{--ink:#2a2c26;--muted:#6a6e64;--line:#b7a78c;--deep:#556148;--wash:#eef1e4;--danger:#9a5340}
+*{box-sizing:border-box}body{margin:0;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:var(--ink);background:#fff}
+main{max-width:520px;margin:0 auto;padding:16px}
+h1{font-size:17px;margin:4px 0 2px}.sub{color:var(--muted);font-size:12px;margin:0 0 14px}
+section{border:1px solid var(--line);border-radius:10px;padding:12px;margin:0 0 12px}
+h2{font-size:14px;margin:0 0 6px}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select{width:100%;min-height:36px;padding:8px 10px;border:0;border-radius:8px;background:#f3f4ef;font:inherit;color:inherit}
+button{min-height:36px;padding:0 14px;margin:10px 8px 0 0;border:1px solid var(--deep);border-radius:8px;background:var(--deep);color:#fff;font:inherit;font-weight:700}
+button.sub2{background:#fff;color:var(--deep)}button:disabled{opacity:.5}
+.out{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--wash);font-size:12px;white-space:pre-wrap;word-break:break-all}
+.out.ng{background:#f6e7df;color:var(--danger)}
+.row{display:flex;gap:8px}.row>*{flex:1}a{color:var(--deep)}
+</style></head><body><main>
+<h1>藏API 接続テスト</h1>
+<p class="sub">v0.1.1 ・ 本を1冊、作品ページと一緒に藏へ登録できるかを確かめるページ</p>
+<section><h2>1. 接続先</h2>
+<label for="url">GASのウェブアプリURL（/exec）</label><input id="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+<label for="key">合言葉</label><input id="key" type="password" autocomplete="off">
+<button id="save">保存して接続確認</button><div id="o1" class="out" hidden></div></section>
+<section><h2>2. 作品ページを探す</h2>
+<label for="q">作品名</label><input id="q" placeholder="例：接続テスト"><button id="find" class="sub2">検索</button><div id="o2" class="out" hidden></div></section>
+<section><h2>3. テスト本を1冊登録</h2>
+<label for="t">タイトル</label><input id="t" value="接続テスト本">
+<label for="kd">種類（新しく作る作品ページにも入る）</label><select id="kd"><option value="">未選択</option><option>HowTo</option><option>読み物</option><option>小説</option><option>漫画</option><option>作品集・画集</option><option>CG集</option><option>講座</option></select>
+<div class="row"><div><label for="a">著者</label><input id="a" value="藏テスト"></div><div><label for="v">巻数</label><input id="v" inputmode="numeric" value="1"></div></div>
+<label for="i">ISBN-13（空でも可）</label><input id="i" inputmode="numeric">
+<label for="s">読書状況</label><select id="s"><option>読みたい</option><option>いま読んでる</option><option>読み終わった</option><option>積読</option></select>
+<label for="w">作品ページ</label><select id="w"><option value="">新しく作る</option></select>
+<button id="reg">藏に登録</button><div id="o3" class="out" hidden></div></section>
+<p class="sub">テストで作ったページは、確認後にNotionで削除してください。合言葉はこの端末にだけ保存されます。</p>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const K_URL = 'kura.api.url', K_KEY = 'kura.api.key';
+  $('url').value = localStorage.getItem(K_URL) || '';
+  $('key').value = localStorage.getItem(K_KEY) || '';
+  const MSG = { auth: '合言葉が違います', no_status: '読書状況を選んでください', no_title: 'タイトルを入れてください', busy: 'ほかの登録が実行中です。少し待ってからもう一度', book_failed: '本の登録に失敗しました（作った作品ページは取り消しました）', server: 'GASでエラーが出ました', bad_json: '送信内容を読めませんでした', bad_request: '送信内容が空か大きすぎます', unknown_action: 'GASの版が古い可能性があります' };
+  function show(id, text, ng) { const o = $(id); o.hidden = false; o.className = 'out' + (ng ? ' ng' : ''); o.textContent = text; }
+  function link(id, label, url) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = label; $(id).append('\n', a); }
+  function btn(id, label, fn) { const b = document.createElement('button'); b.className = 'sub2'; b.textContent = label; b.onclick = () => busy(b, fn); $(id).append('\n', b); }
+  function fail(id, e) { show(id, e.name === 'AbortError' ? '30秒たっても応答がありませんでした' : '通信できませんでした：' + e.message, true); }
+  function ng(id, d) { show(id, (MSG[d.error] || d.error) + (d.message ? '\n' + d.message : ''), true); }
+  async function busy(b, fn) { b.disabled = true; try { await fn(); } finally { b.disabled = false; } }
+  async function call(action, extra) {
+    const url = $('url').value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) throw new Error('URLは https://script.google.com/macros/s/…/exec の形で入れてください');
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 30000);
+    const t0 = performance.now();
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, key: $('key').value }, extra || {})), signal: ctl.signal });
+      const d = await res.json();
+      d._ms = Math.round(performance.now() - t0);
+      return d;
+    } finally { clearTimeout(timer); }
+  }
+  $('save').onclick = () => busy($('save'), async () => {
+    localStorage.setItem(K_URL, $('url').value.trim());
+    localStorage.setItem(K_KEY, $('key').value);
+    try {
+      const d = await call('ping');
+      if (!d.ok) return ng('o1', d);
+      const miss = d.missing && d.missing.length;
+      show('o1', '接続できました（' + d._ms + 'ms）\nDB：' + d.db + '\nAPI：v' + d.version + (miss ? '\n足りない項目：' + d.missing.join('、') : '\n項目：そろっています'), miss);
+    } catch (e) { fail('o1', e); }
+  });
+  $('find').onclick = () => busy($('find'), async () => {
+    try {
+      const d = await call('searchWorks', { q: $('q').value });
+      if (!d.ok) return ng('o2', d);
+      show('o2', (d.works.length ? d.works.length + '件' : '見つかりませんでした') + '（' + d._ms + 'ms' + (d.cached ? '・キャッシュ' : '') + '）');
+      const sel = $('w'); sel.length = 1;
+      d.works.forEach(w => { link('o2', w.title + '（' + w.count + '冊）', w.url); sel.add(new Option('既存：' + w.title, w.id)); });
+    } catch (e) { fail('o2', e); }
+  });
+  function book(keepWork) {
+    const v = $('v').value.trim();
+    const b = { title: $('t').value, authors: $('a').value ? [$('a').value] : [], isbn13: $('i').value, vol: v ? Number(v) : null, status: $('s').value, media: ['紙'], kind: $('kd').value || undefined, method: '手入力', sources: ['手入力'] };
+    if ($('w').value) b.work = { mode: 'existing', id: $('w').value };
+    else if (!keepWork) b.work = { mode: 'new', title: $('t').value };
+    return b;
+  }
+  async function register(extra) {
+    const d = await call('register', Object.assign({ book: book(extra && extra.overwriteId) }, extra || {}));
+    if (d.ok) {
+      show('o3', (d.mode === 'overwritten' ? '上書きしました' : '登録しました') + '（' + d._ms + 'ms）' + (d.work && d.work.created ? '\n作品ページも作りました' : ''));
+      link('o3', '本のページを開く', d.book.url);
+      if (d.work && d.work.url) link('o3', '作品ページを開く', d.work.url);
+      return;
+    }
+    if (d.error !== 'duplicate') return ng('o3', d);
+    show('o3', '同じ本が藏にあるかもしれません。どうしますか？', true);
+    d.candidates.forEach(c => { link('o3', c.title, c.url); btn('o3', 'この本を上書き', () => register({ overwriteId: c.id }).catch(e => fail('o3', e))); });
+    btn('o3', '別の本として登録', () => register({ forceNew: true }).catch(e => fail('o3', e)));
+  }
+  $('reg').onclick = () => busy($('reg'), () => register().catch(e => fail('o3', e)));
+})();
+</script></body></html>
