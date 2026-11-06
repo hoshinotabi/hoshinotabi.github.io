@@ -15,9 +15,10 @@ button.sub2{background:#fff;color:var(--deep)}button:disabled{opacity:.5}
 .out{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--wash);font-size:12px;white-space:pre-wrap;word-break:break-all}
 .out.ng{background:#f6e7df;color:var(--danger)}
 .row{display:flex;gap:8px}.row>*{flex:1}a{color:var(--deep)}
+.ck{display:flex;align-items:center;gap:8px}.ck input{width:auto;min-height:0;margin:0}
 </style></head><body><main>
 <h1>藏API 接続テスト</h1>
-<p class="sub">v0.1.1 ・ 本を1冊、作品ページと一緒に藏へ登録できるかを確かめるページ</p>
+<p class="sub">v0.1.2 ・ 本を1冊、作品ページと一緒に藏へ登録できるかを確かめるページ</p>
 <section><h2>1. 接続先</h2>
 <label for="url">GASのウェブアプリURL（/exec）</label><input id="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
 <label for="key">合言葉</label><input id="key" type="password" autocomplete="off">
@@ -29,6 +30,9 @@ button.sub2{background:#fff;color:var(--deep)}button:disabled{opacity:.5}
 <label for="kd">種類（新しく作る作品ページにも入る）</label><select id="kd"><option value="">未選択</option><option>HowTo</option><option>読み物</option><option>小説</option><option>漫画</option><option>作品集・画集</option><option>CG集</option><option>講座</option></select>
 <div class="row"><div><label for="a">著者</label><input id="a" value="藏テスト"></div><div><label for="v">巻数</label><input id="v" inputmode="numeric" value="1"></div></div>
 <label for="i">ISBN-13（空でも可）</label><input id="i" inputmode="numeric">
+<label for="pt">巻・編（巻数がない場合の判定用・任意）</label><input id="pt" placeholder="例：上巻">
+<div class="row"><div><label for="ty">タイトルよみ（任意）</label><input id="ty"></div><div><label for="ay">著者よみ（任意）</label><input id="ay"></div></div>
+<label class="ck" for="fv"><input id="fv" type="checkbox">お気に入り（読み終わったときだけ送信）</label>
 <label for="s">読書状況</label><select id="s"><option>読みたい</option><option>いま読んでる</option><option>読み終わった</option><option>積読</option></select>
 <label for="w">作品ページ</label><select id="w"><option value="">新しく作る</option></select>
 <button id="reg">藏に登録</button><div id="o3" class="out" hidden></div></section>
@@ -83,12 +87,23 @@ button.sub2{background:#fff;color:var(--deep)}button:disabled{opacity:.5}
   function book(keepWork) {
     const v = $('v').value.trim();
     const b = { title: $('t').value, authors: $('a').value ? [$('a').value] : [], isbn13: $('i').value, vol: v ? Number(v) : null, status: $('s').value, media: ['紙'], kind: $('kd').value || undefined, method: '手入力', sources: ['手入力'] };
+    b.part = $('pt').value.trim();
+    if ($('ty').value.trim()) b.titleYomi = $('ty').value.trim();
+    if ($('ay').value.trim()) b.authorYomi = $('ay').value.trim();
+    if ($('s').value === '読み終わった') b.fav = $('fv').checked;
     if ($('w').value) b.work = { mode: 'existing', id: $('w').value };
     else if (!keepWork) b.work = { mode: 'new', title: $('t').value };
     return b;
   }
-  async function register(extra) {
-    const d = await call('register', Object.assign({ book: book(extra && extra.overwriteId) }, extra || {}));
+  let registering = false;
+  async function register(extra, snapshot) {
+    if (registering) return;
+    const payload = snapshot || book(extra && extra.overwriteId);
+    const sent = JSON.parse(JSON.stringify(payload));
+    registering = true;
+    let d;
+    try { d = await call('register', Object.assign({ book: sent }, extra || {})); }
+    finally { registering = false; }
     if (d.ok) {
       show('o3', (d.mode === 'overwritten' ? '上書きしました' : '登録しました') + '（' + d._ms + 'ms）' + (d.work && d.work.created ? '\n作品ページも作りました' : ''));
       link('o3', '本のページを開く', d.book.url);
@@ -97,8 +112,14 @@ button.sub2{background:#fff;color:var(--deep)}button:disabled{opacity:.5}
     }
     if (d.error !== 'duplicate') return ng('o3', d);
     show('o3', '同じ本が藏にあるかもしれません。どうしますか？', true);
-    d.candidates.forEach(c => { link('o3', c.title, c.url); btn('o3', 'この本を上書き', () => register({ overwriteId: c.id }).catch(e => fail('o3', e))); });
-    btn('o3', '別の本として登録', () => register({ forceNew: true }).catch(e => fail('o3', e)));
+    d.candidates.forEach(c => { link('o3', c.title + (c.vol != null ? '（' + c.vol + '巻）' : c.part ? '（' + c.part + '）' : ''), c.url); btn('o3', 'この本を上書き', () => {
+      if (!confirm('「' + c.title + '」を、確認時の入力内容で上書きしますか？')) return;
+      const overwrite = JSON.parse(JSON.stringify(sent));
+      // 「新しく作る」のまま上書きしても作品ページを新設しない。
+      if (overwrite.work && overwrite.work.mode === 'new') delete overwrite.work;
+      return register({ overwriteId: c.id }, overwrite).catch(e => fail('o3', e));
+    }); });
+    btn('o3', '別の本として登録', () => register({ forceNew: true }, sent).catch(e => fail('o3', e)));
   }
   $('reg').onclick = () => busy($('reg'), () => register().catch(e => fail('o3', e)));
 })();
